@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">  
+<properties>  
+	<comment>dynamic synonym 配置</comment>
+	<!--用户可以在这里配置远程同义词配置 -->	
+	<entry key="remote_synonym">http://172.16.1.30/meilaword.txt</entry>
+</properties>
