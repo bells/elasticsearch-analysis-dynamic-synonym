@@ -4,4 +4,7 @@
 	<comment>dynamic synonym 配置</comment>
 	<!--用户可以在这里配置远程同义词配置 -->	
 	<entry key="remote_synonym">http://172.16.1.30/meilaword.txt</entry>
+	<entry key="interval">60</entry>
+	<entry key="expand">false</entry>
+	<!-- <entry key="format"></entry>  -->
 </properties>
