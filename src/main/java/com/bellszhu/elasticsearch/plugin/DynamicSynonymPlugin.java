@@ -7,7 +7,7 @@ import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.index.analysis.AnalysisModule;
 import org.elasticsearch.plugins.AbstractPlugin;
 
-import com.bellszhu.elasticsearch.plugin.synonym.index.analysis.DynamicSynonymTokenFilterFactory;
+import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
 
 /**
  * @author bellszhu

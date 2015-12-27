@@ -8,9 +8,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.InvalidPropertiesFormatException;
-import java.util.List;
 import java.util.Properties;
 
 import org.elasticsearch.common.logging.ESLogger;
@@ -20,7 +18,12 @@ import org.elasticsearch.env.Environment;
 public class Configuration {
 
 	private static String FILE_NAME = "dynamic_synonym/synonym.cfg.xml";
-	private static final String REMOTE_SYNONYM = "remote_synonym";
+	private static final String SYNONYMS_PATH = "synonyms_path";
+	private static final String IGNORECASE = "ignore_case";
+	private static final String FORMAT = "format";
+	private static final String INTERVAL = "interval";
+	private static final String EXPAND = "expand";
+	
 	private static ESLogger logger = null;
 	private Properties props;
 	private Environment environment;
@@ -49,22 +52,29 @@ public class Configuration {
 		}
 	}
 
-	public List<String> getRemoteExtDictionarys() {
-		List<String> remoteExtDictFiles = new ArrayList<String>(2);
-		String remoteExtDictCfg = props.getProperty(REMOTE_SYNONYM);
-		if (remoteExtDictCfg != null) {
-
-			String[] filePaths = remoteExtDictCfg.split(";");
-			if (filePaths != null) {
-				for (String filePath : filePaths) {
-					if (filePath != null && !"".equals(filePath.trim())) {
-						remoteExtDictFiles.add(filePath);
-
-					}
-				}
-			}
-		}
-		return remoteExtDictFiles;
+	public String getSynonymsPath() {
+		String synonymUrl = props.getProperty(SYNONYMS_PATH);
+		return synonymUrl;
+	}
+	
+	public boolean getIgnorecase() {
+		boolean ignoreCase = Boolean.valueOf(props.getProperty(IGNORECASE, "true"));
+		return ignoreCase;
+	}
+	
+	public boolean getExpand() {
+		boolean expand = Boolean.valueOf(props.getProperty(EXPAND, "false"));
+		return expand;
+	}
+	
+	public int getInterval() {
+		int interval = Integer.valueOf(props.getProperty(INTERVAL, "60"));
+		return interval;
+	}
+	
+	public String getFormat() {
+		String format = props.getProperty(FORMAT, "");
+		return format;
 	}
 
 	public File getDictRoot() {
