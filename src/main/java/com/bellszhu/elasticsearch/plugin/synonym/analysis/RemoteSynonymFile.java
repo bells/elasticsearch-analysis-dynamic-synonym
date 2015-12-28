@@ -9,7 +9,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Locale;
 
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -30,41 +29,108 @@ import org.elasticsearch.env.Environment;
  *
  */
 public class RemoteSynonymFile implements SynonymFile {
-	
+
 	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
-	
+
 	private CloseableHttpClient httpclient = HttpClients.createDefault();
-	
-	private String filePath;
 
 	private String format;
 
 	private boolean expand;
 
 	private Analyzer analyzer;
-
+	
 	private Environment env;
+
+	/** 远程url地址 */
+	private String location;
 	
 	/** 上次更改时间 */
 	private String lastModified;
 
 	/** 资源属性 */
 	private String eTags;
-
-	/** 请求地址 */
-	private String location;
 	
-	/*
-	public void run() {
+	public RemoteSynonymFile(Analyzer analyzer, boolean expand, String format, Environment env, String location) {
+		this.analyzer = analyzer;
+		this.expand = expand;
+		this.format = format;
+		this.env = env;
+		this.location = location;
+	}
 
-		logger.info("*****start location: " + location);
+	@Override
+	public SynonymMap reloadSynonymMap() {
+		try {
+			Reader rulesReader = getReader();
+			SynonymMap.Builder parser = null;
 
-		// 超时设置
+			if ("wordnet".equalsIgnoreCase(format)) {
+				parser = new WordnetSynonymParser(true, expand, analyzer);
+				((WordnetSynonymParser) parser).parse(rulesReader);
+			} else {
+				parser = new SolrSynonymParser(true, expand, analyzer);
+				((SolrSynonymParser) parser).parse(rulesReader);
+			}
+			return parser.build();
+		} catch (Exception e) {
+			logger.error("remote_synonym {} error!", e, location);
+			throw new ElasticsearchIllegalArgumentException(
+					"failed to build synonyms", e);
+		}
+	}
+
+	/**
+	 * 从远程服务器上下载自定义词条
+	 */
+	public Reader getReader() {
+
+		RequestConfig rc = RequestConfig.custom()
+				.setConnectionRequestTimeout(10 * 1000)
+				.setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
+				.build();
+		CloseableHttpResponse response;
+		BufferedReader in = null;
+		HttpGet get = new HttpGet(location);
+		get.setConfig(rc);
+		try {
+			response = httpclient.execute(get);
+			if (response.getStatusLine().getStatusCode() == 200) {
+				String charset = "UTF-8";
+				// 获取编码，默认为utf-8
+				if (response.getEntity().getContentType().getValue()
+						.contains("charset=")) {
+					String contentType = response.getEntity().getContentType()
+							.getValue();
+					charset = contentType.substring(contentType
+							.lastIndexOf("=") + 1);
+				}
+				in = new BufferedReader(new InputStreamReader(response
+						.getEntity().getContent(), charset));
+			}
+		} catch (IOException e) {
+			String message = String.format(Locale.ROOT,
+					"IOException while reading %s_path: %s", location,
+					e.getMessage());
+			throw new ElasticsearchIllegalArgumentException(message);
+		}
+		try {
+			if (response != null) {
+				response.close();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+
+		}
+		return in;
+	}
+
+	@Override
+	public boolean isNeedReloadSynonymMap() {
 		RequestConfig rc = RequestConfig.custom()
 				.setConnectionRequestTimeout(10 * 1000)
 				.setConnectTimeout(10 * 1000).setSocketTimeout(15 * 1000)
 				.build();
-
 		HttpHead head = new HttpHead(location);
 		head.setConfig(rc);
 
@@ -78,55 +144,30 @@ public class RemoteSynonymFile implements SynonymFile {
 
 		CloseableHttpResponse response = null;
 		try {
-
 			response = httpclient.execute(head);
-
-			// 返回200 才做操作
-			if (response.getStatusLine().getStatusCode() == 200) {
-
+			if (response.getStatusLine().getStatusCode() == 200) { // 返回200 才做操作
 				if (!response.getLastHeader("Last-Modified").getValue()
 						.equalsIgnoreCase(lastModified)
 						|| !response.getLastHeader("ETag").getValue()
 								.equalsIgnoreCase(eTags)) {
-
-					// 远程词库有更新,需要重新加载词典，并修改last_modified,eTags
-					// Dictionary.getSingleton().reLoadMainDict();
-					Reader rulesReader = getReader(false);
-
-					SynonymMap.Builder parser = null;
-
-					if ("wordnet".equalsIgnoreCase(format)) {
-						parser = new WordnetSynonymParser(true, expand,
-								analyzer);
-						((WordnetSynonymParser) parser).parse(rulesReader);
-					} else {
-						parser = new SolrSynonymParser(true, expand,
-								analyzer);
-						((SolrSynonymParser) parser).parse(rulesReader);
-					}
-
-					synonymMap = parser.build();
 
 					lastModified = response.getLastHeader("Last-Modified") == null ? null
 							: response.getLastHeader("Last-Modified")
 									.getValue();
 					eTags = response.getLastHeader("ETag") == null ? null
 							: response.getLastHeader("ETag").getValue();
+					return true;
 				}
 			} else if (response.getStatusLine().getStatusCode() == 304) {
-				// 没有修改，不做操作
-				// noop
+				return false;
 			} else {
-				// Dictionary.logger.info("remote_ext_dict {} return bad code {}"
-				// , location , response.getStatusLine().getStatusCode() );
-				logger.info("remote_ext_dict {} return bad code {}",
-						location, response.getStatusLine().getStatusCode());
+				logger.info("remote_synonym {} return bad code {}", location,
+						response.getStatusLine().getStatusCode());
 			}
 
 		} catch (Exception e) {
-			logger.error("remote_ext_dict {} error!", e, location);
-			// Dictionary.logger.error("remote_ext_dict {} error!",e ,
-			// location);
+			logger.error("remote_synonym {} return bad code {}", location,
+					response.getStatusLine().getStatusCode());
 		} finally {
 			try {
 				if (response != null) {
@@ -134,72 +175,10 @@ public class RemoteSynonymFile implements SynonymFile {
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
+
 			}
 		}
-	}
-	*/
-	
-	@Override
-	public SynonymMap createSynonymMap() {
-		Reader rulesReader = getReader();
-
-		SynonymMap.Builder parser = null;
-
-		try {
-			if ("wordnet".equalsIgnoreCase(format)) {
-				parser = new WordnetSynonymParser(true, expand, analyzer);
-				((WordnetSynonymParser) parser).parse(rulesReader);
-			} else {
-				parser = new SolrSynonymParser(true, expand, analyzer);
-				((SolrSynonymParser) parser).parse(rulesReader);
-			}
-			
-			return parser.build();
-		} catch (Exception e) {
-			throw new ElasticsearchIllegalArgumentException(
-					"failed to build synonyms", e);
-		}
-		
-	}
-	
-	/**
-	 * 从远程服务器上下载自定义词条
-	 */
-	public Reader getReader() {
-
-		RequestConfig rc = RequestConfig.custom()
-				.setConnectionRequestTimeout(10 * 1000)
-				.setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
-				.build();
-		CloseableHttpClient httpclient = HttpClients.createDefault();
-		CloseableHttpResponse response;
-		BufferedReader in = null;
-		HttpGet get = new HttpGet(filePath);
-		get.setConfig(rc);
-		try {
-			response = httpclient.execute(get);
-			if (response.getStatusLine().getStatusCode() == 200) {
-
-				String charset = "UTF-8";
-				// 获取编码，默认为utf-8
-				if (response.getEntity().getContentType().getValue()
-						.contains("charset=")) {
-					String contentType = response.getEntity()
-							.getContentType().getValue();
-					charset = contentType.substring(contentType
-							.lastIndexOf("=") + 1);
-				}
-				in = new BufferedReader(new InputStreamReader(response
-						.getEntity().getContent(), charset));
-			}
-			response.close();
-		} catch (IOException e) {
-				String message = String.format(Locale.ROOT,
-						"IOException while reading %s_path: %s", filePath,
-						e.getMessage());
-				throw new ElasticsearchIllegalArgumentException(message);
-		}
-		return in;
+		return false;
 	}
 
 }

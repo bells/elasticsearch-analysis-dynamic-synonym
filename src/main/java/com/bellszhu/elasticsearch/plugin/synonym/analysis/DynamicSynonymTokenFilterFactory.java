@@ -40,22 +40,20 @@ public class DynamicSynonymTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
 	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
-
-	private String location;
-
-	private final String indexName;
+	
 	private static ScheduledExecutorService pool = Executors
 			.newScheduledThreadPool(1);
-	private volatile ScheduledFuture scheduledFuture;
-	
+	private volatile ScheduledFuture<?> scheduledFuture;
 
-	private SynonymMap synonymMap;
+	private final String location;
+	private final String indexName;
 	private final boolean ignoreCase;
 	private final boolean expand;
 	private final String format;
 	private final int interval;
 	private final Analyzer analyzer;
 
+	private SynonymMap synonymMap;
 	private Configuration configuration;
 
 	@Inject
@@ -66,19 +64,16 @@ public class DynamicSynonymTokenFilterFactory extends
 			@Assisted String name, @Assisted Settings settings,
 			IndicesService indicesService) {
 		super(index, indexSettings, name, settings);
-		
+
 		this.indexName = index.getName();
 
-		configuration = new Configuration(env);
-
+		this.configuration = new Configuration(env);
 		this.location = configuration.getSynonymsPath();
 		this.interval = configuration.getInterval();
 		this.ignoreCase = configuration.getIgnorecase();
 		this.expand = configuration.getExpand();
 		this.format = configuration.getFormat();
-		
-		logger.info("*****location: " + location);
-		
+
 		String tokenizerName = settings.get("tokenizer", "whitespace");
 
 		TokenizerFactoryFactory tokenizerFactoryFactory = tokenizerFactories
@@ -102,18 +97,26 @@ public class DynamicSynonymTokenFilterFactory extends
 			@Override
 			protected TokenStreamComponents createComponents(String fieldName,
 					Reader reader) {
-				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer(reader) : tokenizerFactory
-						.create(reader);
-				TokenStream stream = ignoreCase ? new LowerCaseFilter(tokenizer) : tokenizer;
+				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer(
+						reader) : tokenizerFactory.create(reader);
+				TokenStream stream = ignoreCase ? new LowerCaseFilter(tokenizer)
+						: tokenizer;
 				return new TokenStreamComponents(tokenizer, stream);
 			}
 		};
-		
-		SynonymFile synonymFile = new RemoteSynonymFile();
-		synonymMap = synonymFile.createSynonymMap();
 
-		scheduledFuture = pool.scheduleAtFixedRate(new Monitor(
-				synonymFile), interval, interval, TimeUnit.SECONDS);
+		SynonymFile synonymFile;
+		if (location.startsWith("http://")) {
+			synonymFile = new RemoteSynonymFile(analyzer, expand, format, env,
+					location);
+		} else {
+			synonymFile = new LocalSynonymFile(analyzer, expand, format, env,
+					location);
+		}
+		synonymMap = synonymFile.reloadSynonymMap();
+
+		scheduledFuture = pool.scheduleAtFixedRate(new Monitor(synonymFile),
+				interval, interval, TimeUnit.SECONDS);
 		indicesService.indicesLifecycle().addListener(
 				new IndicesLifecycle.Listener() {
 					@Override
@@ -131,9 +134,9 @@ public class DynamicSynonymTokenFilterFactory extends
 		return synonymMap.fst == null ? tokenStream : new SynonymFilter(
 				tokenStream, synonymMap, ignoreCase);
 	}
-	
+
 	public class Monitor implements Runnable {
-		
+
 		private SynonymFile synonymFile;
 
 		public Monitor(SynonymFile synonymFile) {
@@ -142,9 +145,11 @@ public class DynamicSynonymTokenFilterFactory extends
 
 		@Override
 		public void run() {
-			synonymMap = synonymFile.createSynonymMap();
+			if (synonymFile.isNeedReloadSynonymMap()) {
+				synonymMap = synonymFile.reloadSynonymMap();
+			}
 		}
-		
+
 	}
 
 }
