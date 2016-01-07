@@ -47,7 +47,8 @@ Configuration
 </properties>
 ```
 
-Example:
+Example
+--------------
 
 ```json
 {
@@ -62,31 +63,21 @@ Example:
 	        "filter" : {
 	            "synonym" : {
 	                "type" : "dynamic_synonym",
-	                "config_path" : "dynamic_synonym/synonym.cfg.xml"  # not required, default: dynamic_synonym/synonym.cfg.xml
+	                "config_path" : "dynamic_synonym/synonym.cfg.xml"
 	            }
 	        }
 	    }
 	}
 }
 ```
+说明：
+`config_path` is not required. the default value is `dynamic_synonym/synonym.cfg.xml`
 
-### 热更新同义词说明
 
-目前该插件支持热更新 IK 分词，通过上文在 IK 配置文件中提到的如下配置
+热更新同义词说明
+----------------
 
-```xml
- 	<!--用户可以在这里配置远程扩展字典 -->
-	<entry key="remote_ext_dict">location</entry>
- 	<!--用户可以在这里配置远程扩展停止词字典-->
-	<entry key="remote_ext_stopwords">location</entry>
-```
+1. 对于本地文件：主要通过文件的修改时间戳(Modify time)来判断是否要重新加载。
+2. 对于远程文件：`synonyms_path` 是指一个url。 这个http请求需要返回两个头部，一个是 `Last-Modified`，一个是 `ETag`，只要有一个发生变化，该插件就会去获取新的同义词来更新相应的同义词。
 
-其中 `location` 是指一个 url，比如 `http://yoursite.com/getCustomDict`，该请求只需满足以下两点即可完成分词热更新。
-
-1. 该 http 请求需要返回两个头部(header)，一个是 `Last-Modified`，一个是 `ETag`，这两者都是字符串类型，只要有一个发生变化，该插件就会去抓取新的分词进而更新词库。
-
-2. 该 http 请求返回的内容格式是一行一个分词，换行符用 `\n` 即可。
-
-满足上面两点要求就可以实现热更新分词了，不需要重启 ES 实例。
-
-可以将需自动更新的热词放在一个 UTF-8 编码的 .txt 文件里，放在 nginx 或其他简易 http server 下，当 .txt 文件修改时，http server 会在客户端请求该文件时自动返回相应的 Last-Modified 和 ETag。可以另外做一个工具来从业务系统提取相关词汇，并更新这个 .txt 文件。
+注意： 不管是本地文件，还是远程文件，编码都要求是UTF-8的文本文件
