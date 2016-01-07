@@ -61,7 +61,7 @@ public class Configuration {
 	}
 	
 	public boolean getIgnorecase() {
-		boolean ignoreCase = Boolean.valueOf(props.getProperty(IGNORECASE, "true"));
+		boolean ignoreCase = Boolean.valueOf(props.getProperty(IGNORECASE, "false"));
 		return ignoreCase;
 	}
 	

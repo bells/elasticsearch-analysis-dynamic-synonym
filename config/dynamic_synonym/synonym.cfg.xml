@@ -2,14 +2,20 @@
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
 	<comment>dynamic synonym 配置</comment>
-	<!--用户可以在这里配置远程同义词配置 -->
-	<entry key="synonyms_path">http://localhost:8080/syn.txt</entry>
-	<!-- 检测同义词是否修改的时间间隔(单位：秒)-->
-	<entry key="interval">60</entry>
-	<!-- 同义词是否区分大小写-->
-	<entry key="ignore_case">true</entry>
-	<!-- 使用Apache Solr格式同义词时，true表示将所有同义词扩大到所有等价形式 -->
-	<entry key="expand">false</entry>
-	<!-- 如果设置，则表明为wordnext同义词 -->
+	
+	<!--用户可以在这里配置本地或者远程同义词文件 require-->
+	<entry key="synonyms_path">http://remote_host:8080/synonym.txt</entry>
+	<!-- <entry key="synonyms_path">dynamic_synonym/synonym.txt</entry> -->
+
+	<!-- 检测同义词是否修改的时间间隔(单位：秒) not require, default 60s-->
+	<!-- <entry key="interval">60</entry> -->
+	
+	<!-- 同义词是否区分大小写 not require, default false-->
+	<!-- <entry key="ignore_case">true</entry> -->
+	
+	<!-- 使用Apache Solr格式同义词时，true表示将所有同义词扩大到所有等价形式 not require, default false -->
+	<!-- <entry key="expand">false</entry> -->
+	
+	<!-- 如果设置，则表明为wordnext同义词 not require -->
 	<!-- <entry key="format">wordnet</entry> -->
 </properties>
