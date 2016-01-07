@@ -4,7 +4,7 @@
 
 	<groupId>com.bellszhu.elasticsearch</groupId>
 	<artifactId>elasticsearch-dynamic-synonym</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 
 	<name>elasticsearch-dynamic-synonym</name>

@@ -7,7 +7,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.Locale;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -39,19 +38,20 @@ public class RemoteSynonymFile implements SynonymFile {
 	private boolean expand;
 
 	private Analyzer analyzer;
-	
+
 	private Environment env;
 
 	/** 远程url地址 */
 	private String location;
-	
+
 	/** 上次更改时间 */
 	private String lastModified;
 
 	/** 资源属性 */
 	private String eTags;
-	
-	public RemoteSynonymFile(Analyzer analyzer, boolean expand, String format, Environment env, String location) {
+
+	public RemoteSynonymFile(Environment env, Analyzer analyzer,
+			boolean expand, String format, String location) {
 		this.analyzer = analyzer;
 		this.expand = expand;
 		this.format = format;
@@ -74,9 +74,9 @@ public class RemoteSynonymFile implements SynonymFile {
 			}
 			return parser.build();
 		} catch (Exception e) {
-			logger.error("remote_synonym {} error!", e, location);
+			logger.error("reload remote synonym {} error!", e, location);
 			throw new ElasticsearchIllegalArgumentException(
-					"failed to build synonyms", e);
+					"could not reload remote synonyms file", e);
 		}
 	}
 
@@ -84,20 +84,18 @@ public class RemoteSynonymFile implements SynonymFile {
 	 * 从远程服务器上下载自定义词条
 	 */
 	public Reader getReader() {
-
 		RequestConfig rc = RequestConfig.custom()
 				.setConnectionRequestTimeout(10 * 1000)
 				.setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
 				.build();
-		CloseableHttpResponse response;
+		CloseableHttpResponse response = null;
 		BufferedReader in = null;
 		HttpGet get = new HttpGet(location);
 		get.setConfig(rc);
 		try {
 			response = httpclient.execute(get);
 			if (response.getStatusLine().getStatusCode() == 200) {
-				String charset = "UTF-8";
-				// 获取编码，默认为utf-8
+				String charset = "UTF-8";  // 获取编码，默认为utf-8
 				if (response.getEntity().getContentType().getValue()
 						.contains("charset=")) {
 					String contentType = response.getEntity().getContentType()
@@ -109,18 +107,17 @@ public class RemoteSynonymFile implements SynonymFile {
 						.getEntity().getContent(), charset));
 			}
 		} catch (IOException e) {
-			String message = String.format(Locale.ROOT,
-					"IOException while reading %s_path: %s", location,
-					e.getMessage());
-			throw new ElasticsearchIllegalArgumentException(message);
-		}
-		try {
-			if (response != null) {
-				response.close();
+			logger.error("get remote synonym reader {} error!", e, location);
+			throw new ElasticsearchIllegalArgumentException(
+					"IOException while reading remote synonyms file", e);
+		} finally {
+			try {
+				if (response != null) {
+					response.close();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
-
 		}
 		return in;
 	}
@@ -161,13 +158,12 @@ public class RemoteSynonymFile implements SynonymFile {
 			} else if (response.getStatusLine().getStatusCode() == 304) {
 				return false;
 			} else {
-				logger.info("remote_synonym {} return bad code {}", location,
+				logger.info("remote synonym {} return bad code {}", location,
 						response.getStatusLine().getStatusCode());
 			}
 
-		} catch (Exception e) {
-			logger.error("remote_synonym {} return bad code {}", location,
-					response.getStatusLine().getStatusCode());
+		} catch (IOException e) {
+			logger.error("check need reload remote synonym {} error!", e, location);
 		} finally {
 			try {
 				if (response != null) {
@@ -180,5 +176,4 @@ public class RemoteSynonymFile implements SynonymFile {
 		}
 		return false;
 	}
-
 }

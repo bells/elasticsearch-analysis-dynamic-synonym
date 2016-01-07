@@ -17,7 +17,7 @@ import org.elasticsearch.env.Environment;
 
 public class Configuration {
 
-	private static String FILE_NAME = "dynamic_synonym/synonym.cfg.xml";
+	public static final String DEFAULT_CONFIG_PATH = "dynamic_synonym/synonym.cfg.xml";
 	private static final String SYNONYMS_PATH = "synonyms_path";
 	private static final String IGNORECASE = "ignore_case";
 	private static final String FORMAT = "format";
@@ -28,12 +28,15 @@ public class Configuration {
 	private Properties props;
 	private Environment environment;
 
-	public Configuration(Environment env) {
+	public Configuration(Environment env, String configPath) {
 		logger = Loggers.getLogger("dynamic-synonym");
 		props = new Properties();
 		environment = env;
 
-		File fileConfig = new File(environment.configFile(), FILE_NAME);
+		if (configPath == null) {
+			configPath = DEFAULT_CONFIG_PATH;
+		}
+		File fileConfig = new File(environment.configFile(), configPath);
 
 		InputStream input = null;
 		try {
@@ -75,9 +78,5 @@ public class Configuration {
 	public String getFormat() {
 		String format = props.getProperty(FORMAT, "");
 		return format;
-	}
-
-	public File getDictRoot() {
-		return environment.configFile();
 	}
 }

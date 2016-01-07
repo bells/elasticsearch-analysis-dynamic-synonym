@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
-import java.util.Locale;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
@@ -16,6 +15,8 @@ import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.base.Charsets;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
 
 /**
@@ -23,6 +24,8 @@ import org.elasticsearch.env.Environment;
  *
  */
 public class LocalSynonymFile implements SynonymFile {
+	
+	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
 
 	private String format;
 
@@ -34,16 +37,20 @@ public class LocalSynonymFile implements SynonymFile {
 	
 	/** 本地文件路径 相对于config目录 */
 	private String location;
+	
+	private URL synonymFileURL;
 
 	/** 上次更改时间 */
 	private long lastModified;
 
-	public LocalSynonymFile(Analyzer analyzer, boolean expand, String format, Environment env, String location) {
+	public LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand, String format, String location) {
 		this.analyzer = analyzer;
 		this.expand = expand;
 		this.format = format;
 		this.env = env;
 		this.location = location;
+		
+		synonymFileURL = env.resolveConfig(location);
 	}
 
 	@Override
@@ -60,6 +67,7 @@ public class LocalSynonymFile implements SynonymFile {
 			}
 			return parser.build();
 		} catch (Exception e) {
+			logger.error("reload local synonym {} error!", e, location);
 			throw new ElasticsearchIllegalArgumentException(
 					"could not reload local synonyms file", e);
 		}
@@ -67,15 +75,13 @@ public class LocalSynonymFile implements SynonymFile {
 	}
 
 	public Reader getReader() {
-		URL fileUrl = env.resolveConfig(location);
 		Reader reader = null;
 		try {
-			reader = new InputStreamReader(fileUrl.openStream(), Charsets.UTF_8);
-		} catch (IOException ioe) {
-			String message = String.format(Locale.ROOT,
-					"IOException while reading %s_path: %s", location,
-					ioe.getMessage());
-			throw new ElasticsearchIllegalArgumentException(message);
+			reader = new InputStreamReader(synonymFileURL.openStream(), Charsets.UTF_8);
+		} catch (IOException e) {
+			logger.error("get local synonym reader {} error!", e, location);
+			throw new ElasticsearchIllegalArgumentException(
+					"IOException while reading local synonyms file", e);
 		}
 
 		return reader;
@@ -84,7 +90,6 @@ public class LocalSynonymFile implements SynonymFile {
 	@Override
 	public boolean isNeedReloadSynonymMap() {
 		try {
-			URL synonymFileURL = new URL(location);
 			File synonymFile = new File(synonymFileURL.toURI());
 			if (synonymFile.exists()
 					&& lastModified < synonymFile.lastModified()) {
@@ -92,8 +97,7 @@ public class LocalSynonymFile implements SynonymFile {
 				return true;
 			}
 		} catch (Exception e) {
-			throw new ElasticsearchIllegalArgumentException(
-					"could not reload local synonyms file", e);
+			logger.error("check need reload local synonym {} error!", e, location);
 		}
 
 		return false;

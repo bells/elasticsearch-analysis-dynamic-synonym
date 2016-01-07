@@ -40,13 +40,15 @@ public class DynamicSynonymTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
 	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
-	
+
 	private static ScheduledExecutorService pool = Executors
 			.newScheduledThreadPool(1);
 	private volatile ScheduledFuture<?> scheduledFuture;
 
-	private final String location;
 	private final String indexName;
+
+	private final String configPath;
+	private final String location;
 	private final boolean ignoreCase;
 	private final boolean expand;
 	private final String format;
@@ -54,7 +56,6 @@ public class DynamicSynonymTokenFilterFactory extends
 	private final Analyzer analyzer;
 
 	private SynonymMap synonymMap;
-	private Configuration configuration;
 
 	@Inject
 	public DynamicSynonymTokenFilterFactory(Index index,
@@ -66,8 +67,9 @@ public class DynamicSynonymTokenFilterFactory extends
 		super(index, indexSettings, name, settings);
 
 		this.indexName = index.getName();
+		this.configPath = settings.get("config_path");
 
-		this.configuration = new Configuration(env);
+		Configuration configuration = new Configuration(env, this.configPath);
 		this.location = configuration.getSynonymsPath();
 		this.interval = configuration.getInterval();
 		this.ignoreCase = configuration.getIgnorecase();
@@ -75,7 +77,6 @@ public class DynamicSynonymTokenFilterFactory extends
 		this.format = configuration.getFormat();
 
 		String tokenizerName = settings.get("tokenizer", "whitespace");
-
 		TokenizerFactoryFactory tokenizerFactoryFactory = tokenizerFactories
 				.get(tokenizerName);
 		if (tokenizerFactoryFactory == null) {
@@ -107,10 +108,10 @@ public class DynamicSynonymTokenFilterFactory extends
 
 		SynonymFile synonymFile;
 		if (location.startsWith("http://")) {
-			synonymFile = new RemoteSynonymFile(analyzer, expand, format, env,
+			synonymFile = new RemoteSynonymFile(env, analyzer, expand, format,
 					location);
 		} else {
-			synonymFile = new LocalSynonymFile(analyzer, expand, format, env,
+			synonymFile = new LocalSynonymFile(env, analyzer, expand, format,
 					location);
 		}
 		synonymMap = synonymFile.reloadSynonymMap();
