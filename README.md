@@ -13,10 +13,9 @@ master | 1.6.0 -> master
 Installation
 --------------
 
-Using the plugin command (inside your elasticsearch/bin directory) the plugin can be installed by:
-```
-bin/plugin -install analysis-dynamic-synonym  -url https://github.com/bells/elasticsearch-analysis-dynamic-synonym/releases/download/xxx.zip
-```
+1. `mvn package`
+
+2. copy and unzip `target/releases/elasticsearch-analysis-dynamic-synonym-{version}.zip` to `your-es-root/plugins/dynamic-synonym`
 
 Configuration
 -------------

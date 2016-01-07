@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.bellszhu.elasticsearch</groupId>
-	<artifactId>elasticsearch-dynamic-synonym</artifactId>
+	<artifactId>elasticsearch-analysis-dynamic-synonym</artifactId>
 	<version>1.0.0</version>
 	<packaging>jar</packaging>
 
