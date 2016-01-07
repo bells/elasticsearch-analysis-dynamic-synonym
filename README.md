@@ -1,7 +1,7 @@
 dynamic synonym for ElasticSearch
 ==================================
 
-dynamic synonym plugin adds a synonym token filter that reloads the synonym file(local file or remote file) at given intervals (default 60s).
+The dynamic synonym plugin adds a synonym token filter that reloads the synonym file(local file or remote file) at given intervals (default 60s).
 
 Version
 -------------
