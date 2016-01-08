@@ -19,6 +19,7 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.assistedinject.Assisted;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.lucene.Lucene;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
@@ -53,7 +54,6 @@ public class DynamicSynonymTokenFilterFactory extends
 	private final boolean expand;
 	private final String format;
 	private final int interval;
-	private final Analyzer analyzer;
 
 	private SynonymMap synonymMap;
 
@@ -94,14 +94,15 @@ public class DynamicSynonymTokenFilterFactory extends
 						ImmutableSettings.builder().put(indexSettings)
 								.put(settings).build());
 
-		this.analyzer = new Analyzer() {
+		Analyzer analyzer = new Analyzer() {
 			@Override
 			protected TokenStreamComponents createComponents(String fieldName,
 					Reader reader) {
 				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer(
-						reader) : tokenizerFactory.create(reader);
-				TokenStream stream = ignoreCase ? new LowerCaseFilter(tokenizer)
-						: tokenizer;
+						Lucene.ANALYZER_VERSION, reader) : tokenizerFactory
+						.create(reader);
+				TokenStream stream = ignoreCase ? new LowerCaseFilter(
+						Lucene.ANALYZER_VERSION, tokenizer) : tokenizer;
 				return new TokenStreamComponents(tokenizer, stream);
 			}
 		};
@@ -148,6 +149,7 @@ public class DynamicSynonymTokenFilterFactory extends
 		public void run() {
 			if (synonymFile.isNeedReloadSynonymMap()) {
 				synonymMap = synonymFile.reloadSynonymMap();
+				logger.info("{} success reload synonym", indexName);
 			}
 		}
 

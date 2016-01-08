@@ -22,7 +22,7 @@ public class DynamicSynonymPlugin extends AbstractPlugin {
 
 	@Override
 	public String name() {
-		return "dynamic synonym";
+		return "analysis-dynamic-synonym";
 	}
 
 	@Override
