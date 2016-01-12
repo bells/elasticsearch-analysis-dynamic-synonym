@@ -142,7 +142,7 @@ public class DynamicSynonymTokenFilterFactory extends
 		// fst is null means no synonyms
 		return synonymMap.fst == null ? tokenStream : dynamicSynonymFilter;
 	}
-
+	
 	public class Monitor implements Runnable {
 
 		private SynonymFile synonymFile;

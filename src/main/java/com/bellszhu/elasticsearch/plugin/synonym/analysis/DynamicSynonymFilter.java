@@ -655,8 +655,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
 	@Override
 	public void reset() throws IOException {
 
-		logger.info("reset: dynamicsynonymfilter: {}", this.hashCode());
-
 		super.reset();
 		captureCount = 0;
 		finished = false;
