@@ -2,6 +2,7 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
 import java.io.Reader;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -12,7 +13,6 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
-import org.apache.lucene.analysis.synonym.SynonymFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.inject.Inject;
@@ -42,8 +42,8 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
 
-	private static ScheduledExecutorService pool = Executors
-			.newScheduledThreadPool(1);
+	private ScheduledExecutorService pool;
+
 	private volatile ScheduledFuture<?> scheduledFuture;
 
 	private final String indexName;
@@ -56,6 +56,7 @@ public class DynamicSynonymTokenFilterFactory extends
 	private final int interval;
 
 	private SynonymMap synonymMap;
+	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
 
 	@Inject
 	public DynamicSynonymTokenFilterFactory(Index index,
@@ -75,6 +76,8 @@ public class DynamicSynonymTokenFilterFactory extends
 		this.ignoreCase = configuration.getIgnorecase();
 		this.expand = configuration.getExpand();
 		this.format = configuration.getFormat();
+
+		pool = Executors.newScheduledThreadPool(1);
 
 		String tokenizerName = settings.get("tokenizer", "whitespace");
 		TokenizerFactoryFactory tokenizerFactoryFactory = tokenizerFactories
@@ -132,9 +135,12 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	@Override
 	public TokenStream create(TokenStream tokenStream) {
-		// fst is null means no synonyms
-		return synonymMap.fst == null ? tokenStream : new SynonymFilter(
+		DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(
 				tokenStream, synonymMap, ignoreCase);
+		dynamicSynonymFilters.put(dynamicSynonymFilter, 1);
+
+		// fst is null means no synonyms
+		return synonymMap.fst == null ? tokenStream : dynamicSynonymFilter;
 	}
 
 	public class Monitor implements Runnable {
@@ -149,10 +155,13 @@ public class DynamicSynonymTokenFilterFactory extends
 		public void run() {
 			if (synonymFile.isNeedReloadSynonymMap()) {
 				synonymMap = synonymFile.reloadSynonymMap();
-				logger.info("{} success reload synonym", indexName);
+				for (DynamicSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters
+						.keySet()) {
+					dynamicSynonymFilter.update(synonymMap);
+					logger.info("{} success reload synonym", indexName);
+				}
 			}
 		}
-
 	}
 
 }
