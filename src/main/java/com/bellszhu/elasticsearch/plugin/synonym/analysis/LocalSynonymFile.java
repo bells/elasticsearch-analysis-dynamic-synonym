@@ -22,7 +22,7 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
 
 /**
- * @author bells
+ * @author bellszhu
  *
  */
 public class LocalSynonymFile implements SynonymFile {
@@ -83,11 +83,11 @@ public class LocalSynonymFile implements SynonymFile {
 		Reader reader = null;
 		BufferedReader br = null;
 		try {
+			
+			reader = new InputStreamReader(synonymFileURL.openStream(),
+			Charsets.UTF_8);
+			
 			/*
-			 * reader = new InputStreamReader(synonymFileURL.openStream(),
-			 * Charsets.UTF_8);
-			 */
-
 			br = new BufferedReader(new InputStreamReader(
 					synonymFileURL.openStream(), Charsets.UTF_8));
 			StringBuffer sb = new StringBuffer("");
@@ -97,6 +97,7 @@ public class LocalSynonymFile implements SynonymFile {
 				sb.append(line).append(System.getProperty("line.separator"));
 			}
 			reader = new FastStringReader(sb.toString());
+			*/
 		} catch (IOException e) {
 			logger.error("get local synonym reader {} error!", e, location);
 			throw new ElasticsearchIllegalArgumentException(

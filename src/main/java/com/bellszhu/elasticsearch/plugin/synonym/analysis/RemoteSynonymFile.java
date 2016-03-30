@@ -25,7 +25,7 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
 
 /**
- * @author bells
+ * @author bellszhu
  *
  */
 public class RemoteSynonymFile implements SynonymFile {
@@ -109,10 +109,10 @@ public class RemoteSynonymFile implements SynonymFile {
 					charset = contentType.substring(contentType
 							.lastIndexOf("=") + 1);
 				}
+				
+				reader = new InputStreamReader(response.getEntity().getContent(), charset);
+				
 				/*
-				 * reader = new BufferedReader(new InputStreamReader(response
-				 * .getEntity().getContent(), charset));
-				 */
 				br = new BufferedReader(new InputStreamReader(response
 						.getEntity().getContent(), charset));
 				StringBuffer sb = new StringBuffer("");
@@ -123,6 +123,7 @@ public class RemoteSynonymFile implements SynonymFile {
 							.append(System.getProperty("line.separator"));
 				}
 				reader = new FastStringReader(sb.toString());
+				*/
 			}
 		} catch (IOException e) {
 			logger.error("get remote synonym reader {} error!", e, location);

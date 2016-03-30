@@ -34,8 +34,11 @@ import org.elasticsearch.indices.IndicesLifecycle;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.analysis.IndicesAnalysisService;
 
-import com.bellszhu.elasticsearch.cfg.Configuration;
-
+/**
+ * 
+ * @author bellszhu
+ *
+ */
 @AnalysisSettingsRequired
 public class DynamicSynonymTokenFilterFactory extends
 		AbstractTokenFilterFactory {
@@ -48,7 +51,6 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	private final String indexName;
 
-	private final String configPath;
 	private final String location;
 	private final boolean ignoreCase;
 	private final boolean expand;
@@ -68,14 +70,16 @@ public class DynamicSynonymTokenFilterFactory extends
 		super(index, indexSettings, name, settings);
 
 		this.indexName = index.getName();
-		this.configPath = settings.get("config_path");
-
-		Configuration configuration = new Configuration(env, this.configPath);
-		this.location = configuration.getSynonymsPath();
-		this.interval = configuration.getInterval();
-		this.ignoreCase = configuration.getIgnorecase();
-		this.expand = configuration.getExpand();
-		this.format = configuration.getFormat();
+		
+		this.location = settings.get("synonyms_path");
+		if (this.location == null) {
+			throw new ElasticsearchIllegalArgumentException("dynamic synonym requires `synonyms_path` to be configured");
+		}
+		
+		this.interval = settings.getAsInt("interval", 60);
+		this.ignoreCase = settings.getAsBoolean("ignore_case", false);
+        this.expand = settings.getAsBoolean("expand", true);
+        this.format = settings.get("format", "");
 
 		pool = Executors.newScheduledThreadPool(1);
 

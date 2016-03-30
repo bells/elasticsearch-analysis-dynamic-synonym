@@ -17,35 +17,6 @@ Installation
 
 2. copy and unzip `target/releases/elasticsearch-analysis-dynamic-synonym-{version}.zip` to `your-es-root/plugins/dynamic-synonym`
 
-Configuration
--------------
-
-#### `config/dynamic_synonym/synonym.cfg.xml`
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
-<properties>
-	<comment>dynamic synonym 配置</comment>
-	
-	<!--用户可以在这里配置本地或者远程同义词文件 required-->
-	<entry key="synonyms_path">http://remote_host:8080/synonym.txt</entry>
-	<!-- <entry key="synonyms_path">dynamic_synonym/synonym.txt</entry> -->
-
-	<!-- 检测同义词是否修改的时间间隔(单位：秒) not required, default 60s-->
-	<!-- <entry key="interval">60</entry> -->
-	
-	<!-- 同义词是否区分大小写 not required, default false-->
-	<!-- <entry key="ignore_case">true</entry> -->
-	
-	<!-- 使用Apache Solr格式同义词时，true表示将所有同义词扩大到所有等价形式 not required, default false -->
-	<!-- <entry key="expand">false</entry> -->
-	
-	<!-- 如果设置，则表明为wordnext同义词 not required -->
-	<!-- <entry key="format">wordnet</entry> -->
-</properties>
-```
-
 Example
 --------------
 
@@ -60,17 +31,26 @@ Example
  	           }
 	        },
 	        "filter" : {
-	            "synonym" : {
+	            "remote_synonym" : {
 	                "type" : "dynamic_synonym",
-	                "config_path" : "dynamic_synonym/synonym.cfg.xml"
-	            }
+	                "synonyms_path" : "http://host:port/synonym.txt",
+	                "interval": 30
+	            },
+	            "local_synonym" : {
+	                "type" : "dynamic_synonym",
+	                "synonyms_path" : "synonym.txt"
+	            },
 	        }
 	    }
 	}
 }
 ```
 说明：
-`config_path` is not required. the default value is `dynamic_synonym/synonym.cfg.xml`
+`synonyms_path` 是必须要配置的，根据它的值是否是以`http://`开头来判断是本地文件，还是远程文件。 
+`interval` 非必须配置的，默认值是60，单位秒，表示间隔多少秒去检查同义词文件是否有更新。
+`ignore_case` 非必须配置的， 默认值是false
+`expand` 非必须配置的， 默认值是true
+`format` 非必须配置的， 默认值是空字符串, 如果为wordnet，则表示WordNet结构的同义词。
 
 
 热更新同义词说明
