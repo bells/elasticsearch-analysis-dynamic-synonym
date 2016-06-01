@@ -1,6 +1,5 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import java.io.Reader;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executors;
@@ -14,13 +13,10 @@ import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.assistedinject.Assisted;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.common.lucene.Lucene;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.Index;
@@ -70,16 +66,17 @@ public class DynamicSynonymTokenFilterFactory extends
 		super(index, indexSettings, name, settings);
 
 		this.indexName = index.getName();
-		
+
 		this.location = settings.get("synonyms_path");
 		if (this.location == null) {
-			throw new ElasticsearchIllegalArgumentException("dynamic synonym requires `synonyms_path` to be configured");
+			throw new IllegalArgumentException(
+					"dynamic synonym requires `synonyms_path` to be configured");
 		}
-		
+
 		this.interval = settings.getAsInt("interval", 60);
 		this.ignoreCase = settings.getAsBoolean("ignore_case", false);
-        this.expand = settings.getAsBoolean("expand", true);
-        this.format = settings.get("format", "");
+		this.expand = settings.getAsBoolean("expand", true);
+		this.format = settings.get("format", "");
 
 		pool = Executors.newScheduledThreadPool(1);
 
@@ -91,25 +88,21 @@ public class DynamicSynonymTokenFilterFactory extends
 					.tokenizerFactoryFactory(tokenizerName);
 		}
 		if (tokenizerFactoryFactory == null) {
-			throw new ElasticsearchIllegalArgumentException(
-					"failed to find tokenizer [" + tokenizerName
-							+ "] for synonym token filter");
+			throw new IllegalArgumentException("failed to find tokenizer ["
+					+ tokenizerName + "] for synonym token filter");
 		}
 
 		final TokenizerFactory tokenizerFactory = tokenizerFactoryFactory
-				.create(tokenizerName,
-						ImmutableSettings.builder().put(indexSettings)
-								.put(settings).build());
+				.create(tokenizerName, Settings.builder().put(indexSettings)
+						.put(settings).build());
 
 		Analyzer analyzer = new Analyzer() {
 			@Override
-			protected TokenStreamComponents createComponents(String fieldName,
-					Reader reader) {
-				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer(
-						Lucene.ANALYZER_VERSION, reader) : tokenizerFactory
-						.create(reader);
-				TokenStream stream = ignoreCase ? new LowerCaseFilter(
-						Lucene.ANALYZER_VERSION, tokenizer) : tokenizer;
+			protected TokenStreamComponents createComponents(String fieldName) {
+				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer()
+						: tokenizerFactory.create();
+				TokenStream stream = ignoreCase ? new LowerCaseFilter(tokenizer)
+						: tokenizer;
 				return new TokenStreamComponents(tokenizer, stream);
 			}
 		};
@@ -146,7 +139,7 @@ public class DynamicSynonymTokenFilterFactory extends
 		// fst is null means no synonyms
 		return synonymMap.fst == null ? tokenStream : dynamicSynonymFilter;
 	}
-	
+
 	public class Monitor implements Runnable {
 
 		private SynonymFile synonymFile;

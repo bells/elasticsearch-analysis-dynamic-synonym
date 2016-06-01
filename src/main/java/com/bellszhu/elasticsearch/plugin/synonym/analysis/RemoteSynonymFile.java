@@ -18,8 +18,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
-import org.elasticsearch.ElasticsearchIllegalArgumentException;
-import org.elasticsearch.common.io.FastStringReader;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
@@ -79,7 +77,7 @@ public class RemoteSynonymFile implements SynonymFile {
 			return parser.build();
 		} catch (Exception e) {
 			logger.error("reload remote synonym {} error!", e, location);
-			throw new ElasticsearchIllegalArgumentException(
+			throw new IllegalArgumentException(
 					"could not reload remote synonyms file to build synonyms",
 					e);
 		}
@@ -127,7 +125,7 @@ public class RemoteSynonymFile implements SynonymFile {
 			}
 		} catch (IOException e) {
 			logger.error("get remote synonym reader {} error!", e, location);
-			throw new ElasticsearchIllegalArgumentException(
+			throw new IllegalArgumentException(
 					"IOException while reading remote synonyms file", e);
 		} finally {
 			try {

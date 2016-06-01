@@ -3,9 +3,8 @@
  */
 package com.bellszhu.elasticsearch.plugin;
 
-import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.index.analysis.AnalysisModule;
-import org.elasticsearch.plugins.AbstractPlugin;
+import org.elasticsearch.plugins.Plugin;
 
 import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
 
@@ -13,7 +12,7 @@ import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFil
  * @author bellszhu
  *
  */
-public class DynamicSynonymPlugin extends AbstractPlugin {
+public class DynamicSynonymPlugin extends Plugin {
 
 	@Override
 	public String description() {
@@ -24,14 +23,9 @@ public class DynamicSynonymPlugin extends AbstractPlugin {
 	public String name() {
 		return "analysis-dynamic-synonym";
 	}
-
-	@Override
-	public void processModule(Module module) {
-		if (module instanceof AnalysisModule) {
-			AnalysisModule analysisModule = (AnalysisModule) module;
-			analysisModule.addTokenFilter("dynamic_synonym",
-					DynamicSynonymTokenFilterFactory.class);
-		}
-	}
+	
+	public void onModule(AnalysisModule module) {
+        module.addTokenFilter("dynamic_synonym", DynamicSynonymTokenFilterFactory.class);
+    }
 
 }
