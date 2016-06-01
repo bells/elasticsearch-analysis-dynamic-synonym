@@ -7,14 +7,15 @@
 	<version>2.0.0</version>
 	<packaging>jar</packaging>
 	<name>elasticsearch-dynamic-synonym</name>
-	<description>IK Analyzer for Elasticsearch</description>
+	<description>Analysis-plugin for synonym</description>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<elasticsearch.version>2.0.0</elasticsearch.version>
 		<maven.compiler.target>1.7</maven.compiler.target>
         <elasticsearch.plugin.name>analysis-dynamic-synonym</elasticsearch.plugin.name>
-        <elasticsearch.plugin.classname>com.bellszhu.elasticsearch.DynamicSynonymPlugin</elasticsearch.plugin.classname>
+        <elasticsearch.assembly.descriptor>${project.basedir}/src/main/assemblies/plugin.xml</elasticsearch.assembly.descriptor>
+        <elasticsearch.plugin.classname>com.bellszhu.elasticsearch.plugin.DynamicSynonymPlugin</elasticsearch.plugin.classname>
         <elasticsearch.plugin.jvm>true</elasticsearch.plugin.jvm>
 	</properties>
 	
