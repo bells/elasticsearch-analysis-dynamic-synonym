@@ -25,7 +25,7 @@ import org.elasticsearch.index.analysis.AbstractTokenFilterFactory;
 import org.elasticsearch.index.analysis.AnalysisSettingsRequired;
 import org.elasticsearch.index.analysis.TokenizerFactory;
 import org.elasticsearch.index.analysis.TokenizerFactoryFactory;
-import org.elasticsearch.index.settings.IndexSettings;
+import org.elasticsearch.index.settings.IndexSettingsService;
 import org.elasticsearch.indices.IndicesLifecycle;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.analysis.IndicesAnalysisService;
@@ -58,12 +58,12 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	@Inject
 	public DynamicSynonymTokenFilterFactory(Index index,
-			@IndexSettings Settings indexSettings, Environment env,
+			IndexSettingsService indexSettingsService, Environment env,
 			IndicesAnalysisService indicesAnalysisService,
 			Map<String, TokenizerFactoryFactory> tokenizerFactories,
 			@Assisted String name, @Assisted Settings settings,
 			IndicesService indicesService) {
-		super(index, indexSettings, name, settings);
+		super(index, indexSettingsService.getSettings(), name, settings);
 
 		this.indexName = index.getName();
 
@@ -93,8 +93,10 @@ public class DynamicSynonymTokenFilterFactory extends
 		}
 
 		final TokenizerFactory tokenizerFactory = tokenizerFactoryFactory
-				.create(tokenizerName, Settings.builder().put(indexSettings)
-						.put(settings).build());
+				.create(
+						tokenizerName,
+						Settings.builder().put(indexSettingsService.getSettings()).put(settings).build()
+				);
 
 		Analyzer analyzer = new Analyzer() {
 			@Override
