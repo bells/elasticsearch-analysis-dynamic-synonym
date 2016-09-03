@@ -32,7 +32,7 @@ Example
 	        "analyzer" : {
 	            "synonym" : {
 	                "tokenizer" : "whitespace",
-	                "filter" : ["synonym"]
+	                "filter" : ["remote_synonym"]
  	           }
 	        },
 	        "filter" : {
