@@ -5,7 +5,9 @@ import java.util.WeakHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
@@ -41,7 +43,19 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
 
-	private ScheduledExecutorService pool;
+	/**
+     * 静态的id生成器
+     */
+    private static final AtomicInteger id = new AtomicInteger(1);
+    private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1,
+            new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread thread = new Thread(r);
+                    thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
+                    return thread;
+                }
+            });
 
 	private volatile ScheduledFuture<?> scheduledFuture;
 
@@ -77,8 +91,6 @@ public class DynamicSynonymTokenFilterFactory extends
 		this.ignoreCase = settings.getAsBoolean("ignore_case", false);
 		this.expand = settings.getAsBoolean("expand", true);
 		this.format = settings.get("format", "");
-
-		pool = Executors.newScheduledThreadPool(1);
 
 		String tokenizerName = settings.get("tokenizer", "whitespace");
 		TokenizerFactoryFactory tokenizerFactoryFactory = tokenizerFactories
