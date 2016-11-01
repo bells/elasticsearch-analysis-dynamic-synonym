@@ -62,9 +62,10 @@ public class RemoteSynonymFile implements SynonymFile {
 
 	@Override
 	public SynonymMap reloadSynonymMap() {
+	    Reader rulesReader = null;
 		try {
 			logger.info("start reload remote synonym from {}.", location);
-			Reader rulesReader = getReader();
+			rulesReader = getReader();
 			SynonymMap.Builder parser = null;
 
 			if ("wordnet".equalsIgnoreCase(format)) {
@@ -80,7 +81,13 @@ public class RemoteSynonymFile implements SynonymFile {
 			throw new IllegalArgumentException(
 					"could not reload remote synonyms file to build synonyms",
 					e);
-		}
+		} finally {
+            try {
+                rulesReader.close();
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+        }
 	}
 
 	/**
@@ -129,9 +136,6 @@ public class RemoteSynonymFile implements SynonymFile {
 					"IOException while reading remote synonyms file", e);
 		} finally {
 			try {
-				if (response != null) {
-					response.close();
-				}
 				if (br != null) {
 					br.close();
 				}
