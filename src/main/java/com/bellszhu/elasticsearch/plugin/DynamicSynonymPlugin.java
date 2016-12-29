@@ -3,6 +3,7 @@
  */
 package com.bellszhu.elasticsearch.plugin;
 
+import com.bellszhu.elasticsearch.plugin.synonym.service.DynamicSynonymAnalysisService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleComponent;
@@ -27,6 +28,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.util.Collections.singletonList;
+
 /**
  * @author bellszhu
  *
@@ -46,6 +49,11 @@ public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
         Collection<Object> components = new ArrayList<>();
         components.add(pluginComponent);
         return components;
+    }
+
+    @Override
+    public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
+        return singletonList(DynamicSynonymAnalysisService.class);
     }
 
     @Override
