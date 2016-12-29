@@ -3,29 +3,83 @@
  */
 package com.bellszhu.elasticsearch.plugin;
 
-import org.elasticsearch.index.analysis.AnalysisModule;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.component.LifecycleComponent;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.index.IndexSettings;
+import org.elasticsearch.index.analysis.AnalysisRegistry;
+import org.elasticsearch.index.analysis.TokenFilterFactory;
+import org.elasticsearch.indices.analysis.AnalysisModule;
+import org.elasticsearch.plugins.AnalysisPlugin;
 import org.elasticsearch.plugins.Plugin;
 
 import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
+import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.search.SearchRequestParsers;
+import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.watcher.ResourceWatcherService;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author bellszhu
  *
  */
-public class DynamicSynonymPlugin extends Plugin {
+public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
+    private PluginComponent pluginComponent = new PluginComponent();
 
-	@Override
-	public String description() {
-		return "Analysis-plugin for synonym";
-	}
-
-	@Override
-	public String name() {
-		return "analysis-dynamic-synonym";
-	}
-	
-	public void onModule(AnalysisModule module) {
-        module.addTokenFilter("dynamic_synonym", DynamicSynonymTokenFilterFactory.class);
+    @Override
+    public Collection<Object> createComponents(
+            Client client,
+            ClusterService clusterService,
+            ThreadPool threadPool,
+            ResourceWatcherService resourceWatcherService,
+            ScriptService scriptService,
+            SearchRequestParsers searchRequestParsers
+    ) {
+        Collection<Object> components = new ArrayList<>();
+        components.add(pluginComponent);
+        return components;
     }
 
+    @Override
+    public Map<String, AnalysisModule.AnalysisProvider<TokenFilterFactory>> getTokenFilters() {
+        Map<String, AnalysisModule.AnalysisProvider<org.elasticsearch.index.analysis.TokenFilterFactory>> extra = new HashMap<>();
+
+        extra.put("dynamic_synonym", new AnalysisModule.AnalysisProvider<TokenFilterFactory>() {
+
+            @Override
+            public TokenFilterFactory get(IndexSettings indexSettings, Environment environment, String name, Settings settings)
+                    throws IOException {
+                return new DynamicSynonymTokenFilterFactory(indexSettings, environment, name, settings, pluginComponent.getAnalysisRegistry());
+            }
+
+            @Override
+            public boolean requiresAnalysisSettings() {
+                return true;
+            }
+        });
+        return extra;
+    }
+
+
+    public static class PluginComponent {
+
+        private AnalysisRegistry analysisRegistry;
+
+        public AnalysisRegistry getAnalysisRegistry() {
+            return analysisRegistry;
+        }
+
+        public void setAnalysisRegistry(AnalysisRegistry analysisRegistry) {
+            this.analysisRegistry = analysisRegistry;
+        }
+
+    }
 }
