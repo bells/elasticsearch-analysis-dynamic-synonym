@@ -61,13 +61,6 @@ public class RemoteSynonymFile implements SynonymFile {
 		isNeedReloadSynonymMap();
 	}
 
-	public static void main(String args[]) {
-		System.out.println("Hello World!");
-		RemoteSynonymFile file =new RemoteSynonymFile(null,null,true,"","http://112.124.124.137:4590/helper/synonym");
-		file.reloadSynonymMap();
-
-	}
-
 	@Override
 	public SynonymMap reloadSynonymMap() {
 		Reader rulesReader = null;
