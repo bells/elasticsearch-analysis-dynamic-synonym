@@ -14,6 +14,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
+import org.elasticsearch.common.io.FastStringReader;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.env.Environment;
 
@@ -60,11 +61,19 @@ public class RemoteSynonymFile implements SynonymFile {
 		isNeedReloadSynonymMap();
 	}
 
+	public static void main(String args[]) {
+		System.out.println("Hello World!");
+		RemoteSynonymFile file =new RemoteSynonymFile(null,null,true,"","http://112.124.124.137:4590/helper/synonym");
+		file.reloadSynonymMap();
+
+	}
+
 	@Override
 	public SynonymMap reloadSynonymMap() {
+		Reader rulesReader = null;
 		try {
 			logger.info("start reload remote synonym from {}.", location);
-			Reader rulesReader = getReader();
+			rulesReader = getReader();
 			SynonymMap.Builder parser = null;
 
 			if ("wordnet".equalsIgnoreCase(format)) {
@@ -80,6 +89,15 @@ public class RemoteSynonymFile implements SynonymFile {
 			throw new IllegalArgumentException(
 					"could not reload remote synonyms file to build synonyms",
 					e);
+		}
+		finally {
+			if(rulesReader != null ){
+				try {
+					rulesReader.close();
+				} catch(Exception e) {
+					logger.error("failed to close rulesReader",e);
+				}
+			}
 		}
 	}
 
@@ -109,7 +127,7 @@ public class RemoteSynonymFile implements SynonymFile {
 				}
 				
 				reader = new InputStreamReader(response.getEntity().getContent(), charset);
-				
+
 				/*
 				br = new BufferedReader(new InputStreamReader(response
 						.getEntity().getContent(), charset));
@@ -127,11 +145,15 @@ public class RemoteSynonymFile implements SynonymFile {
 			logger.error("get remote synonym reader {} error!", e, location);
 			throw new IllegalArgumentException(
 					"IOException while reading remote synonyms file", e);
-		} finally {
+		} catch (Exception e){
+			logger.error("get remote synonym reader {} error!", e, location);
+			throw new IllegalArgumentException(
+					"IOException while reading remote synonyms file", e);
+		}finally {
 			try {
-				if (response != null) {
-					response.close();
-				}
+//				if (response != null) {
+//					response.close();
+//				}
 				if (br != null) {
 					br.close();
 				}
