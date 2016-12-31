@@ -17,27 +17,18 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
  * limitations under the License.
  */
 
-import java.io.IOException;
-import java.util.Arrays;
-
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
-import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
-import org.apache.lucene.analysis.tokenattributes.PositionLengthAttribute;
-import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.analysis.tokenattributes.*;
 import org.apache.lucene.store.ByteArrayDataInput;
-import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.AttributeSource;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.CharsRef;
-import org.apache.lucene.util.CharsRefBuilder;
-import org.apache.lucene.util.RamUsageEstimator;
+import org.apache.lucene.util.*;
 import org.apache.lucene.util.fst.FST;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.logging.ESLoggerFactory;
+
+import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Matches single or multi word synonyms in a token stream. This token stream
@@ -111,7 +102,7 @@ import org.elasticsearch.common.logging.Loggers;
 
 public final class DynamicSynonymFilter extends TokenFilter {
 
-	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
+	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
 
 	public static final String TYPE_SYNONYM = "SYNONYM";
 
