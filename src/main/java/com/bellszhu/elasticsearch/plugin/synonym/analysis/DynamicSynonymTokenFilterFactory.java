@@ -1,5 +1,6 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
+
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executors;
@@ -9,39 +10,41 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+
+import org.apache.logging.log4j.Logger;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.inject.assistedinject.Assisted;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
-import org.elasticsearch.index.Index;
-import org.elasticsearch.index.IndexService;
+import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.analysis.AbstractTokenFilterFactory;
-import org.elasticsearch.index.analysis.AnalysisSettingsRequired;
+import org.elasticsearch.index.analysis.AnalysisRegistry;
 import org.elasticsearch.index.analysis.TokenizerFactory;
-import org.elasticsearch.index.analysis.TokenizerFactoryFactory;
-import org.elasticsearch.index.settings.IndexSettingsService;
-import org.elasticsearch.indices.IndicesLifecycle;
-import org.elasticsearch.indices.IndicesService;
-import org.elasticsearch.indices.analysis.IndicesAnalysisService;
+import org.elasticsearch.indices.analysis.AnalysisModule;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 
  * @author bellszhu
  *
  */
-@AnalysisSettingsRequired
 public class DynamicSynonymTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
-	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
+	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
 
 	/**
      * 静态的id生成器
@@ -59,8 +62,6 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	private volatile ScheduledFuture<?> scheduledFuture;
 
-	private final String indexName;
-
 	private final String location;
 	private final boolean ignoreCase;
 	private final boolean expand;
@@ -70,16 +71,16 @@ public class DynamicSynonymTokenFilterFactory extends
 	private SynonymMap synonymMap;
 	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
 
-	@Inject
-	public DynamicSynonymTokenFilterFactory(Index index,
-			IndexSettingsService indexSettingsService, Environment env,
-			IndicesAnalysisService indicesAnalysisService,
-			Map<String, TokenizerFactoryFactory> tokenizerFactories,
-			@Assisted String name, @Assisted Settings settings,
-			IndicesService indicesService) {
-		super(index, indexSettingsService.getSettings(), name, settings);
+	public DynamicSynonymTokenFilterFactory(
+			IndexSettings indexSettings,
+			Environment env,
+			String name,
+			Settings settings,
+			AnalysisRegistry analysisRegistry
+	) throws IOException {
 
-		this.indexName = index.getName();
+		super(indexSettings, name, settings);
+
 
 		this.location = settings.get("synonyms_path");
 		if (this.location == null) {
@@ -93,30 +94,25 @@ public class DynamicSynonymTokenFilterFactory extends
 		this.format = settings.get("format", "");
 
 		String tokenizerName = settings.get("tokenizer", "whitespace");
-		TokenizerFactoryFactory tokenizerFactoryFactory = tokenizerFactories
-				.get(tokenizerName);
-		if (tokenizerFactoryFactory == null) {
-			tokenizerFactoryFactory = indicesAnalysisService
-					.tokenizerFactoryFactory(tokenizerName);
-		}
-		if (tokenizerFactoryFactory == null) {
-			throw new IllegalArgumentException("failed to find tokenizer ["
-					+ tokenizerName + "] for synonym token filter");
-		}
 
-		final TokenizerFactory tokenizerFactory = tokenizerFactoryFactory
-				.create(
-						tokenizerName,
-						Settings.builder().put(indexSettingsService.getSettings()).put(settings).build()
-				);
+
+		AnalysisModule.AnalysisProvider<TokenizerFactory> tokenizerFactoryFactory =
+				analysisRegistry.getTokenizerProvider(tokenizerName, indexSettings);
+		if (tokenizerFactoryFactory == null) {
+			throw new IllegalArgumentException("failed to find tokenizer [" + tokenizerName + "] for synonym token filter");
+		}
+		final TokenizerFactory tokenizerFactory = tokenizerFactoryFactory.get(indexSettings, env, tokenizerName,
+
+				AnalysisRegistry.getSettingsFromIndexSettings(indexSettings, AnalysisRegistry.INDEX_ANALYSIS_TOKENIZER + "." + tokenizerName));
+
+
+
 
 		Analyzer analyzer = new Analyzer() {
 			@Override
 			protected TokenStreamComponents createComponents(String fieldName) {
-				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer()
-						: tokenizerFactory.create();
-				TokenStream stream = ignoreCase ? new LowerCaseFilter(tokenizer)
-						: tokenizer;
+				Tokenizer tokenizer = tokenizerFactory == null ? new WhitespaceTokenizer() : tokenizerFactory.create();
+				TokenStream stream = ignoreCase ? new LowerCaseFilter(tokenizer) : tokenizer;
 				return new TokenStreamComponents(tokenizer, stream);
 			}
 		};
@@ -133,16 +129,10 @@ public class DynamicSynonymTokenFilterFactory extends
 
 		scheduledFuture = pool.scheduleAtFixedRate(new Monitor(synonymFile),
 				interval, interval, TimeUnit.SECONDS);
-		indicesService.indicesLifecycle().addListener(
-				new IndicesLifecycle.Listener() {
-					@Override
-					public void beforeIndexClosed(IndexService indexService) {
-						if (indexService.index().getName().equals(indexName)) {
-							scheduledFuture.cancel(false);
-						}
-					}
-				});
+
 	}
+
+
 
 	@Override
 	public TokenStream create(TokenStream tokenStream) {
@@ -169,7 +159,7 @@ public class DynamicSynonymTokenFilterFactory extends
 				for (DynamicSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters
 						.keySet()) {
 					dynamicSynonymFilter.update(synonymMap);
-					logger.info("{} success reload synonym", indexName);
+					logger.info("success reload synonym");
 				}
 			}
 		}

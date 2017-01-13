@@ -3,24 +3,25 @@
  */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.io.FastStringReader;
+import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.env.Environment;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 
 /**
  * @author bellszhu
@@ -28,7 +29,7 @@ import org.elasticsearch.env.Environment;
  */
 public class RemoteSynonymFile implements SynonymFile {
 
-	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
+	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
 
 	private CloseableHttpClient httpclient = HttpClients.createDefault();
 
@@ -62,9 +63,10 @@ public class RemoteSynonymFile implements SynonymFile {
 
 	@Override
 	public SynonymMap reloadSynonymMap() {
+		Reader rulesReader = null;
 		try {
 			logger.info("start reload remote synonym from {}.", location);
-			Reader rulesReader = getReader();
+			rulesReader = getReader();
 			SynonymMap.Builder parser = null;
 
 			if ("wordnet".equalsIgnoreCase(format)) {
@@ -80,6 +82,15 @@ public class RemoteSynonymFile implements SynonymFile {
 			throw new IllegalArgumentException(
 					"could not reload remote synonyms file to build synonyms",
 					e);
+		}
+		finally {
+			if(rulesReader != null ){
+				try {
+					rulesReader.close();
+				} catch(Exception e) {
+					logger.error("failed to close rulesReader",e);
+				}
+			}
 		}
 	}
 
@@ -109,7 +120,7 @@ public class RemoteSynonymFile implements SynonymFile {
 				}
 				
 				reader = new InputStreamReader(response.getEntity().getContent(), charset);
-				
+
 				/*
 				br = new BufferedReader(new InputStreamReader(response
 						.getEntity().getContent(), charset));
@@ -127,11 +138,15 @@ public class RemoteSynonymFile implements SynonymFile {
 			logger.error("get remote synonym reader {} error!", e, location);
 			throw new IllegalArgumentException(
 					"IOException while reading remote synonyms file", e);
-		} finally {
+		} catch (Exception e){
+			logger.error("get remote synonym reader {} error!", e, location);
+			throw new IllegalArgumentException(
+					"IOException while reading remote synonyms file", e);
+		}finally {
 			try {
-				if (response != null) {
-					response.close();
-				}
+//				if (response != null) {
+//					response.close();
+//				}
 				if (br != null) {
 					br.close();
 				}

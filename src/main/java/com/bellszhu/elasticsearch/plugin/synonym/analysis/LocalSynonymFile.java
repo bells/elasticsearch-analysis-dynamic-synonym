@@ -9,16 +9,16 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Path;
 
+import org.apache.commons.codec.Charsets;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
 import org.elasticsearch.common.io.FileSystemUtils;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.env.Environment;
 
-import com.google.common.base.Charsets;
 
 /**
  * @author bellszhu
@@ -26,7 +26,7 @@ import com.google.common.base.Charsets;
  */
 public class LocalSynonymFile implements SynonymFile {
 
-	public static ESLogger logger = Loggers.getLogger("dynamic-synonym");
+	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
 
 	private String format;
 
