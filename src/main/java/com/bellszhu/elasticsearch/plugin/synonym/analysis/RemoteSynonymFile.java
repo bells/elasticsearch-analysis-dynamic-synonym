@@ -14,7 +14,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
-import org.elasticsearch.common.io.FastStringReader;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.env.Environment;
 
@@ -88,7 +87,7 @@ public class RemoteSynonymFile implements SynonymFile {
 				try {
 					rulesReader.close();
 				} catch(Exception e) {
-					logger.error("failed to close rulesReader",e);
+					logger.error("failed to close rulesReader", e);
 				}
 			}
 		}
@@ -144,14 +143,11 @@ public class RemoteSynonymFile implements SynonymFile {
 					"IOException while reading remote synonyms file", e);
 		}finally {
 			try {
-//				if (response != null) {
-//					response.close();
-//				}
 				if (br != null) {
 					br.close();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+				logger.error("failed to close bufferedReader", e);
 			}
 		}
 		return reader;
@@ -206,8 +202,7 @@ public class RemoteSynonymFile implements SynonymFile {
 					response.close();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
-
+				logger.error("failed to close http response", e);
 			}
 		}
 		return false;
