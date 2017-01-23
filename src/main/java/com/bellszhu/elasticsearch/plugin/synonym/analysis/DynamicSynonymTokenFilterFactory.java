@@ -17,8 +17,9 @@ import org.elasticsearch.index.analysis.TokenizerFactory;
 import org.elasticsearch.indices.analysis.AnalysisModule;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -45,8 +46,8 @@ public class DynamicSynonymTokenFilterFactory extends
 	private final int interval;
 
 	private SynonymMap synonymMap;
-	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
-
+	//	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
+	private List<DynamicSynonymFilter> dynamicSynonymFilters = Collections.synchronizedList(new ArrayList<>());
 	public DynamicSynonymTokenFilterFactory(
 			IndexSettings indexSettings,
 			Environment env,
@@ -116,8 +117,7 @@ public class DynamicSynonymTokenFilterFactory extends
 	public TokenStream create(TokenStream tokenStream) {
 		DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(
 				tokenStream, synonymMap, ignoreCase);
-		dynamicSynonymFilters.put(dynamicSynonymFilter, 1);
-
+		dynamicSynonymFilters.add(dynamicSynonymFilter);
 		// fst is null means no synonyms
 		return synonymMap.fst == null ? tokenStream : dynamicSynonymFilter;
 	}
@@ -134,8 +134,7 @@ public class DynamicSynonymTokenFilterFactory extends
 		public void run() {
 			if (synonymFile.isNeedReloadSynonymMap()) {
 				synonymMap = synonymFile.reloadSynonymMap();
-				for (DynamicSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters
-						.keySet()) {
+				for (DynamicSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters) {
 					dynamicSynonymFilter.update(synonymMap);
 					logger.info("success reload synonym");
 				}
