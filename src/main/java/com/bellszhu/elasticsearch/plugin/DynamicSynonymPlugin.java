@@ -19,7 +19,6 @@ import org.elasticsearch.plugins.Plugin;
 
 import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
 import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.search.SearchRequestParsers;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
@@ -35,7 +34,7 @@ import static java.util.Collections.singletonList;
  * @author bellszhu
  *
  */
-public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
+public class DynamicSynonymPlugin extends Plugin implements AnalysisPlugin {
     private PluginComponent pluginComponent = new PluginComponent();
 
     @Override
@@ -45,7 +44,6 @@ public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
             ThreadPool threadPool,
             ResourceWatcherService resourceWatcherService,
             ScriptService scriptService,
-            SearchRequestParsers searchRequestParsers, 
             NamedXContentRegistry xContentRegistry
     ) {
         Collection<Object> components = new ArrayList<>();
