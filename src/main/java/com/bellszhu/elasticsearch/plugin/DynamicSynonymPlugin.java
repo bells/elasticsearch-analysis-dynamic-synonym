@@ -67,7 +67,7 @@ public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
             @Override
             public TokenFilterFactory get(IndexSettings indexSettings, Environment environment, String name, Settings settings)
                     throws IOException {
-                return new DynamicSynonymTokenFilterFactory(indexSettings, environment, name, settings, pluginComponent.getAnalysisRegistry());
+                return DynamicSynonymTokenFilterFactory.getInstance(indexSettings, environment, name, settings, pluginComponent.getAnalysisRegistry());
             }
 
             @Override

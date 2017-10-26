@@ -64,6 +64,27 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	private SynonymMap synonymMap;
 	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
+	private static DynamicSynonymTokenFilterFactory instance = null;
+
+	public synchronized static DynamicSynonymTokenFilterFactory getInstance(
+			IndexSettings indexSettings,
+			Environment env,
+			String name,
+			Settings settings,
+			AnalysisRegistry analysisRegistry
+	) throws IOException {
+		if( instance != null ){
+			return instance;
+		}
+		instance = new DynamicSynonymTokenFilterFactory(
+				indexSettings,
+				env,
+				name,
+				settings,
+				analysisRegistry
+		);
+		return instance;
+	}
 
 	public DynamicSynonymTokenFilterFactory(
 			IndexSettings indexSettings,
