@@ -8,6 +8,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.analysis.AnalysisRegistry;
@@ -18,7 +19,6 @@ import org.elasticsearch.plugins.Plugin;
 
 import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
 import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.search.SearchRequestParsers;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
@@ -44,7 +44,7 @@ public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
             ThreadPool threadPool,
             ResourceWatcherService resourceWatcherService,
             ScriptService scriptService,
-            SearchRequestParsers searchRequestParsers
+            NamedXContentRegistry xContentRegistry
     ) {
         Collection<Object> components = new ArrayList<>();
         components.add(pluginComponent);

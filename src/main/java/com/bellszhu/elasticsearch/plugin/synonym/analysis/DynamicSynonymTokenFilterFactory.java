@@ -123,7 +123,7 @@ public class DynamicSynonymTokenFilterFactory extends
 		};
 
 		SynonymFile synonymFile;
-		if (location.startsWith("http://")) {
+		if (location.startsWith("http://") || location.startsWith("https://")) {
 			synonymFile = new RemoteSynonymFile(env, analyzer, expand, format,
 					location);
 		} else {
