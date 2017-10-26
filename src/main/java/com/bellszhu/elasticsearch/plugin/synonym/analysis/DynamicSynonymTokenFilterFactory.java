@@ -29,6 +29,9 @@ import org.elasticsearch.index.analysis.TokenizerFactory;
 import org.elasticsearch.indices.analysis.AnalysisModule;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.*;
 
 /**
  * 
@@ -64,6 +67,36 @@ public class DynamicSynonymTokenFilterFactory extends
 
 	private SynonymMap synonymMap;
 	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
+	private static ConcurrentMap<String,DynamicSynonymTokenFilterFactory> instanceMap = new ConcurrentHashMap<>();
+
+	public synchronized static DynamicSynonymTokenFilterFactory getInstance(
+			IndexSettings indexSettings,
+			Environment env,
+			String name,
+			Settings settings,
+			AnalysisRegistry analysisRegistry
+	) throws IOException {
+
+		String location = settings.get("synonyms_path");
+		if (location == null) {
+			throw new IllegalArgumentException(
+					"dynamic synonym requires `synonyms_path` to be configured");
+		}
+
+		DynamicSynonymTokenFilterFactory instance = instanceMap.get(location);
+		if( instance != null ){
+			return instance;
+		}
+		instance = new DynamicSynonymTokenFilterFactory(
+				indexSettings,
+				env,
+				name,
+				settings,
+				analysisRegistry
+		);
+		instanceMap.put(location,instance);
+		return instance;
+	}
 
 	public DynamicSynonymTokenFilterFactory(
 			IndexSettings indexSettings,
