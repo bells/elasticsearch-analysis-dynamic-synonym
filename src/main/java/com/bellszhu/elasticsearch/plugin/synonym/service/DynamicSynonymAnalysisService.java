@@ -8,26 +8,26 @@ import org.elasticsearch.index.analysis.AnalysisRegistry;
 
 public class DynamicSynonymAnalysisService extends AbstractLifecycleComponent {
 
-	@Inject
-	public DynamicSynonymAnalysisService(final Settings settings, final AnalysisRegistry analysisRegistry,
-			final DynamicSynonymPlugin.PluginComponent pluginComponent) {
-		super(settings);
-		pluginComponent.setAnalysisRegistry(analysisRegistry);
-	}
+    @Inject
+    public DynamicSynonymAnalysisService(final Settings settings, final AnalysisRegistry analysisRegistry,
+                                         final DynamicSynonymPlugin.PluginComponent pluginComponent) {
+        super(settings);
+        pluginComponent.setAnalysisRegistry(analysisRegistry);
+    }
 
-	@Override
-	protected void doStart() {
-		// nothing
-	}
+    @Override
+    protected void doStart() {
+        // nothing
+    }
 
-	@Override
-	protected void doStop() {
-		// nothing
-	}
+    @Override
+    protected void doStop() {
+        // nothing
+    }
 
-	@Override
-	protected void doClose() {
-		// nothing
-	}
+    @Override
+    protected void doClose() {
+        // nothing
+    }
 
 }
