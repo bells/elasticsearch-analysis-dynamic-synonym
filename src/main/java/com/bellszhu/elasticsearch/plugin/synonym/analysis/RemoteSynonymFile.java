@@ -40,13 +40,11 @@ public class RemoteSynonymFile implements SynonymFile {
 
 	private Environment env;
 
-	/** 远程url地址 */
+	/** Remote URL address */
 	private String location;
 
-	/** 上次更改时间 */
 	private String lastModified;
 
-	/** 资源属性 */
 	private String eTags;
 
 	public RemoteSynonymFile(Environment env, Analyzer analyzer,
@@ -94,7 +92,7 @@ public class RemoteSynonymFile implements SynonymFile {
 	}
 
 	/**
-	 * 从远程服务器上下载自定义词条
+	 * Download custom terms from a remote server
 	 */
 	public Reader getReader() {
 		Reader reader = null;

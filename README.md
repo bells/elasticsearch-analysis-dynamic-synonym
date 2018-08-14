@@ -1,10 +1,8 @@
-dynamic synonym for ElasticSearch
-==================================
+# Dynamic Synonym for ElasticSearch
 
-The dynamic synonym plugin adds a synonym token filter that reloads the synonym file(local file or remote file) at given intervals (default 60s).
+The dynamic synonym plugin adds a synonym token filter that reloads the synonym file (local file or remote file) at given intervals (default 60s).
 
-Version
--------------
+## Version
 
 dynamic synonym version | ES version
 -----------|-----------
@@ -18,15 +16,13 @@ master| 6.x -> master
 2.0.0 | 2.0.0 
 1.6.0 | 1.6.X
 
-Installation
---------------
+## Installation
 
 1. `mvn package`
 
 2. copy and unzip `target/releases/elasticsearch-analysis-dynamic-synonym-{version}.zip` to `your-es-root/plugins/dynamic-synonym`
 
-Example
---------------
+## Example
 
 ```json
 {
@@ -53,22 +49,22 @@ Example
 	}
 }
 ```
-说明：
-`synonyms_path` 是必须要配置的，根据它的值是否是以`http://`或者`https://`开头来判断是本地文件，还是远程文件。 
+### Configuration
 
-`interval` 非必须配置的，默认值是60，单位秒，表示间隔多少秒去检查同义词文件是否有更新。
+`synonyms_path`: A file path relative to the Elastic config file or an URL, *mandatory*
 
-`ignore_case` 非必须配置的， 默认值是false。
+`interval`: Refresh interval in seconds for the synonym file, default: `60`, *optional*
 
-`expand` 非必须配置的， 默认值是true。
+`ignore_case`: Ignore case in synonyms file, default: `false`, *optional*
 
-`format` 非必须配置的， 默认值是空字符串, 如果为wordnet，则表示WordNet结构的同义词。
+`expand`: Expand, default: `true`, *optional* 
+
+`format`: Synonym file format, default: `''`, *optional*. For WordNet structure this can be set to `'wordnet'`
 
 
-热更新同义词说明
-----------------
+## Update mechanism
 
-1. 对于本地文件：主要通过文件的修改时间戳(Modify time)来判断是否要重新加载。
-2. 对于远程文件：`synonyms_path` 是指一个url。 这个http请求需要返回两个头部，一个是 `Last-Modified`，一个是 `ETag`，只要有一个发生变化，该插件就会去获取新的同义词来更新相应的同义词。
+* Local files: Determined by modification time of the file, if it has changed the synonyms wil
+* Remote files: Reads out the `Last-Modified` and `ETag` http header. If one of these changes, the synonyms will be reloaded. 
 
-注意： 不管是本地文件，还是远程文件，编码都要求是UTF-8的文本文件
+**Note:** File encoding should be an utf-8 text file. 

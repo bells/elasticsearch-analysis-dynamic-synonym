@@ -41,7 +41,7 @@ public class DynamicSynonymTokenFilterFactory extends
 	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
 
 	/**
-     * 静态的id生成器
+     * Static id generator
      */
     private static final AtomicInteger id = new AtomicInteger(1);
     private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1,

@@ -34,12 +34,11 @@ public class LocalSynonymFile implements SynonymFile {
 
 	private Environment env;
 
-	/** 本地文件路径 相对于config目录 */
+	/** Local file path relative to the config directory */
 	private String location;
 
 	private Path synonymFilePath;
 
-	/** 上次更改时间 */
 	private long lastModified;
 
 	public LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand,
