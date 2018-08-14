@@ -8,7 +8,8 @@ Version
 
 dynamic synonym version | ES version
 -----------|-----------
-master| 5.x -> master
+master| 6.x -> master
+6.1.4 |	6.1.4
 5.2.0 |	5.2.0
 5.1.1 |	5.1.1
 2.3.0 | 2.3.0
