@@ -17,7 +17,6 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
  * limitations under the License.
  */
 
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
@@ -25,7 +24,6 @@ import org.apache.lucene.analysis.tokenattributes.*;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.util.*;
 import org.apache.lucene.util.fst.FST;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -102,8 +100,7 @@ import java.util.Arrays;
 
 public final class DynamicSynonymFilter extends TokenFilter {
 
-    public static final String TYPE_SYNONYM = "SYNONYM";
-    public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+    private static final String TYPE_SYNONYM = "SYNONYM";
     private final boolean ignoreCase;
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
     private final PositionIncrementAttribute posIncrAtt = addAttribute(PositionIncrementAttribute.class);
@@ -118,14 +115,12 @@ public final class DynamicSynonymFilter extends TokenFilter {
     private SynonymMap synonyms;
     private int rollBufferSize;
 
-    ;
     private int captureCount;
     // How many future input tokens have already been matched
     // to a synonym; because the matching is "greedy" we don't
     // try to do any more matching for such tokens:
     private int inputSkipCount;
 
-    ;
     // Rolling buffer, holding pending input tokens we had to
     // clone because we needed to look ahead, indexed by
     // position:
@@ -167,8 +162,8 @@ public final class DynamicSynonymFilter extends TokenFilter {
      *                   true, its your responsibility to lowercase the input entries
      *                   when you create the {@link SynonymMap}
      */
-    public DynamicSynonymFilter(TokenStream input, SynonymMap synonyms,
-                                boolean ignoreCase) {
+    DynamicSynonymFilter(TokenStream input, SynonymMap synonyms,
+                         boolean ignoreCase) {
         super(input);
         this.ignoreCase = ignoreCase;
         update(synonyms);
@@ -176,7 +171,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
 
     private void capture() {
         captureCount++;
-        // System.out.println("  capture slot=" + nextWrite);
         final PendingInput input = futureInputs[nextWrite];
 
         input.state = captureState();
@@ -190,7 +184,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
     }
 
     private void parse() throws IOException {
-        // System.out.println("\nS: parse");
 
         assert inputSkipCount == 0;
 
@@ -214,8 +207,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
             // Pull next token's chars:
             final char[] buffer;
             final int bufferLen;
-            // System.out.println("  cycle nextRead=" + curNextRead +
-            // " nextWrite=" + nextWrite);
 
             int inputEndOffset = 0;
 
@@ -223,16 +214,13 @@ public final class DynamicSynonymFilter extends TokenFilter {
 
                 // We used up our lookahead buffer of input tokens
                 // -- pull next real input token:
-
                 if (finished) {
                     break;
                 } else {
-                    // System.out.println("  input.incrToken");
                     assert futureInputs[nextWrite].consumed;
                     // Not correct: a syn match whose output is longer
                     // than its input can set future inputs keepOrig
                     // to true:
-                    // assert !futureInputs[nextWrite].keepOrig;
                     if (input.incrementToken()) {
                         buffer = termAtt.buffer();
                         bufferLen = termAtt.length();
@@ -241,8 +229,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
                                 .startOffset();
                         lastEndOffset = input.endOffset = offsetAtt.endOffset();
                         inputEndOffset = input.endOffset;
-                        // System.out.println("  new token=" + new
-                        // String(buffer, 0, bufferLen));
                         if (nextRead != nextWrite) {
                             capture();
                         } else {
@@ -251,7 +237,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
 
                     } else {
                         // No more input tokens
-                        // System.out.println("      set end");
                         finished = true;
                         break;
                     }
@@ -261,8 +246,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
                 buffer = futureInputs[curNextRead].term.chars();
                 bufferLen = futureInputs[curNextRead].term.length();
                 inputEndOffset = futureInputs[curNextRead].endOffset;
-                // System.out.println("  old token=" + new String(buffer, 0,
-                // bufferLen));
             }
 
             tokenCount++;
@@ -275,15 +258,12 @@ public final class DynamicSynonymFilter extends TokenFilter {
                 if (fst.findTargetArc(
                         ignoreCase ? Character.toLowerCase(codePoint)
                                 : codePoint, scratchArc, scratchArc, fstReader) == null) {
-                    // System.out.println("    stop");
                     break byToken;
                 }
 
                 // Accum the output
                 pendingOutput = fst.outputs.add(pendingOutput,
                         scratchArc.output);
-                // System.out.println("    char=" + buffer[bufUpto] + " output="
-                // + pendingOutput + " arc.output=" + scratchArc.output);
                 bufUpto += Character.charCount(codePoint);
             }
 
@@ -294,8 +274,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
                         scratchArc.nextFinalOutput);
                 matchInputLength = tokenCount;
                 matchEndOffset = inputEndOffset;
-                // System.out.println("  found matchLength=" + matchInputLength
-                // + " output=" + matchOutput);
             }
 
             // See if the FST wants to continue matching (ie, needs to
@@ -320,13 +298,10 @@ public final class DynamicSynonymFilter extends TokenFilter {
         }
 
         if (nextRead == nextWrite && !finished) {
-            // System.out.println("  skip write slot=" + nextWrite);
             nextWrite = rollIncr(nextWrite);
         }
 
         if (matchOutput != null) {
-            // System.out.println("  add matchLength=" + matchInputLength +
-            // " output=" + matchOutput);
             inputSkipCount = matchInputLength;
             addOutput(matchOutput, matchInputLength, matchEndOffset);
         } else if (nextRead != nextWrite) {
@@ -338,8 +313,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
             assert finished;
         }
 
-        // System.out.println("  parse done inputSkipCount=" + inputSkipCount +
-        // " nextRead=" + nextRead + " nextWrite=" + nextWrite);
     }
 
     // Interleaves all output tokens onto the futureOutputs:
@@ -350,12 +323,8 @@ public final class DynamicSynonymFilter extends TokenFilter {
         final int code = bytesReader.readVInt();
         final boolean keepOrig = (code & 0x1) == 0;
         final int count = code >>> 1;
-        // System.out.println("  addOutput count=" + count + " keepOrig=" +
-        // keepOrig);
         for (int outputIDX = 0; outputIDX < count; outputIDX++) {
             synonyms.words.get(bytesReader.readVInt(), scratchBytes);
-            // System.out.println("    outIDX=" + outputIDX + " bytes=" +
-            // scratchBytes.length);
             scratchChars.copyUTF8Bytes(scratchBytes);
             int lastStart = 0;
             final int chEnd = lastStart + scratchChars.length();
@@ -387,12 +356,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
                     }
                     futureOutputs[outputUpto].add(scratchChars.chars(),
                             lastStart, outputLen, endOffset, posLen);
-                    // System.out.println("      " + new
-                    // String(scratchChars.chars, lastStart, outputLen) +
-                    // " outputUpto=" + outputUpto);
                     lastStart = 1 + chIDX;
-                    // System.out.println("  slot=" + outputUpto + " keepOrig="
-                    // + keepOrig);
                     outputUpto = rollIncr(outputUpto);
                     assert futureOutputs[outputUpto].posIncr == 1 : "outputUpto="
                             + outputUpto + " vs nextWrite=" + nextWrite;
@@ -418,16 +382,8 @@ public final class DynamicSynonymFilter extends TokenFilter {
         }
     }
 
-    // for testing
-    int getCaptureCount() {
-        return captureCount;
-    }
-
     @Override
     public boolean incrementToken() throws IOException {
-
-        // System.out.println("\nS: incrToken inputSkipCount=" + inputSkipCount
-        // + " nextRead=" + nextRead + " nextWrite=" + nextWrite);
 
         while (true) {
 
@@ -442,12 +398,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
                 // both input & outputs?
                 final PendingInput input = futureInputs[nextRead];
                 final PendingOutputs outputs = futureOutputs[nextRead];
-
-                // System.out.println("  cycle nextRead=" + nextRead +
-                // " nextWrite=" + nextWrite + " inputSkipCount="+
-                // inputSkipCount + " input.keepOrig=" + input.keepOrig +
-                // " input.consumed=" + input.consumed + " input.state=" +
-                // input.state);
 
                 if (!input.consumed && (input.keepOrig || !input.matched)) {
                     if (input.state != null) {
@@ -467,8 +417,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
                         nextRead = rollIncr(nextRead);
                         inputSkipCount--;
                     }
-                    // System.out.println("  return token=" +
-                    // termAtt.toString());
                     return true;
                 } else if (outputs.upto < outputs.count) {
                     // Still have pending outputs to replay at this
@@ -493,8 +441,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
                         nextRead = rollIncr(nextRead);
                         inputSkipCount--;
                     }
-                    // System.out.println("  return token=" +
-                    // termAtt.toString());
                     return true;
                 } else {
                     // Done with the buffered input and all outputs at
@@ -522,11 +468,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
                     termAtt.copyBuffer(output.chars, output.offset,
                             output.length);
                     typeAtt.setType(TYPE_SYNONYM);
-                    // System.out.println("  set posIncr=" + outputs.posIncr +
-                    // " outputs=" + outputs);
                     posIncrAtt.setPositionIncrement(posIncr);
-                    // System.out.println("  return token=" +
-                    // termAtt.toString());
                     return true;
                 } else {
                     return false;
@@ -560,7 +502,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
         }
     }
 
-    public void update(SynonymMap synonymMap) {
+    void update(SynonymMap synonymMap) {
         this.synonyms = synonymMap;
         this.fst = synonyms.fst;
         if (fst == null) {
@@ -580,8 +522,6 @@ public final class DynamicSynonymFilter extends TokenFilter {
             futureOutputs[pos] = new PendingOutputs();
         }
 
-        // System.out.println("FSTFilt maxH=" + synonyms.maxHorizontalContext);
-
         scratchArc = new FST.Arc<>();
     }
 
@@ -600,7 +540,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
         int startOffset;
         int endOffset;
 
-        public void reset() {
+        void reset() {
             state = null;
             consumed = true;
             keepOrig = false;
@@ -619,18 +559,18 @@ public final class DynamicSynonymFilter extends TokenFilter {
         int lastEndOffset;
         int lastPosLength;
 
-        public PendingOutputs() {
+        PendingOutputs() {
             outputs = new CharsRefBuilder[1];
             endOffsets = new int[1];
             posLengths = new int[1];
         }
 
-        public void reset() {
+        void reset() {
             upto = count = 0;
             posIncr = 1;
         }
 
-        public CharsRef pullNext() {
+        CharsRef pullNext() {
             assert upto < count;
             lastEndOffset = endOffsets[upto];
             lastPosLength = posLengths[upto];
@@ -642,16 +582,16 @@ public final class DynamicSynonymFilter extends TokenFilter {
             return result.get();
         }
 
-        public int getLastEndOffset() {
+        int getLastEndOffset() {
             return lastEndOffset;
         }
 
-        public int getLastPosLength() {
+        int getLastPosLength() {
             return lastPosLength;
         }
 
-        public void add(char[] output, int offset, int len, int endOffset,
-                        int posLength) {
+        void add(char[] output, int offset, int len, int endOffset,
+                 int posLength) {
             if (count == outputs.length) {
                 outputs = Arrays.copyOf(outputs, ArrayUtil.oversize(1 + count,
                         RamUsageEstimator.NUM_BYTES_OBJECT_REF));

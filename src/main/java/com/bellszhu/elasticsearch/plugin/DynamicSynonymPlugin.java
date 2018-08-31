@@ -82,7 +82,7 @@ public class DynamicSynonymPlugin extends Plugin implements AnalysisPlugin {
 
         private AnalysisRegistry analysisRegistry;
 
-        public AnalysisRegistry getAnalysisRegistry() {
+        AnalysisRegistry getAnalysisRegistry() {
             return analysisRegistry;
         }
 
