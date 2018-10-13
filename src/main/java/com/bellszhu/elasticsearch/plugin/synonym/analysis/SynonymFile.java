@@ -12,10 +12,10 @@ import java.io.Reader;
  */
 public interface SynonymFile {
 
-    public SynonymMap reloadSynonymMap();
+    SynonymMap reloadSynonymMap();
 
-    public boolean isNeedReloadSynonymMap();
+    boolean isNeedReloadSynonymMap();
 
-    public Reader getReader();
+    Reader getReader();
 
 }

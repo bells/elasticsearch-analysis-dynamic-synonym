@@ -6,9 +6,7 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 import org.apache.commons.codec.Charsets;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
 import org.elasticsearch.common.io.FastStringReader;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.env.Environment;
@@ -22,7 +20,7 @@ import java.nio.file.Path;
  */
 public class LocalSynonymFile implements SynonymFile {
 
-    public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+    private static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
 
     private String format;
 
@@ -41,8 +39,8 @@ public class LocalSynonymFile implements SynonymFile {
 
     private long lastModified;
 
-    public LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand,
-                            String format, String location) {
+    LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand,
+                     String format, String location) {
         this.analyzer = analyzer;
         this.expand = expand;
         this.format = format;
@@ -58,14 +56,7 @@ public class LocalSynonymFile implements SynonymFile {
         try {
             logger.info("start reload local synonym from {}.", location);
             Reader rulesReader = getReader();
-            SynonymMap.Builder parser = null;
-            if ("wordnet".equalsIgnoreCase(format)) {
-                parser = new WordnetSynonymParser(true, expand, analyzer);
-                ((WordnetSynonymParser) parser).parse(rulesReader);
-            } else {
-                parser = new SolrSynonymParser(true, expand, analyzer);
-                ((SolrSynonymParser) parser).parse(rulesReader);
-            }
+            SynonymMap.Builder parser = RemoteSynonymFile.getSynonymParser(rulesReader, format, expand, analyzer);
             return parser.build();
         } catch (Exception e) {
             logger.error("reload local synonym {} error!", e, location);

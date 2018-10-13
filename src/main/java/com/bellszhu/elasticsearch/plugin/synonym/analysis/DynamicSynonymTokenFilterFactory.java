@@ -20,7 +20,10 @@ import org.elasticsearch.indices.analysis.AnalysisModule;
 import java.io.IOException;
 import java.util.Map;
 import java.util.WeakHashMap;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -33,16 +36,12 @@ public class DynamicSynonymTokenFilterFactory extends
      * Static id generator
      */
     private static final AtomicInteger id = new AtomicInteger(1);
-    public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
-    private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1,
-            new ThreadFactory() {
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread thread = new Thread(r);
-                    thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
-                    return thread;
-                }
-            });
+    private static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+    private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
+        Thread thread = new Thread(r);
+        thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
+        return thread;
+    });
     private final String location;
     private final boolean ignoreCase;
     private final boolean expand;
@@ -50,7 +49,7 @@ public class DynamicSynonymTokenFilterFactory extends
     private final int interval;
     private volatile ScheduledFuture<?> scheduledFuture;
     private SynonymMap synonymMap;
-    private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
+    private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<>();
 
     public DynamicSynonymTokenFilterFactory(
             IndexSettings indexSettings,
@@ -61,7 +60,6 @@ public class DynamicSynonymTokenFilterFactory extends
     ) throws IOException {
 
         super(indexSettings, name, settings);
-
 
         this.location = settings.get("synonyms_path");
         if (this.location == null) {
@@ -75,7 +73,6 @@ public class DynamicSynonymTokenFilterFactory extends
         this.format = settings.get("format", "");
 
         String tokenizerName = settings.get("tokenizer", "whitespace");
-
 
         AnalysisModule.AnalysisProvider<TokenizerFactory> tokenizerFactoryFactory =
                 analysisRegistry.getTokenizerProvider(tokenizerName, indexSettings);
@@ -126,7 +123,7 @@ public class DynamicSynonymTokenFilterFactory extends
 
         private SynonymFile synonymFile;
 
-        public Monitor(SynonymFile synonymFile) {
+        Monitor(SynonymFile synonymFile) {
             this.synonymFile = synonymFile;
         }
 
