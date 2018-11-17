@@ -43,7 +43,7 @@ master| 6.x -> master
 	            "local_synonym" : {
 	                "type" : "dynamic_synonym",
 	                "synonyms_path" : "synonym.txt"
-	            },
+	            }
 	        }
 	    }
 	}

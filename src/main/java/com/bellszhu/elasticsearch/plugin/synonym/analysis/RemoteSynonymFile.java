@@ -15,7 +15,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
-import org.elasticsearch.common.io.FastStringReader;
+import java.io.StringReader;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.env.Environment;
 
@@ -152,7 +152,7 @@ public class RemoteSynonymFile implements SynonymFile {
                     sb.append(line)
                             .append(System.getProperty("line.separator"));
                 }
-                reader = new FastStringReader(sb.toString());
+                reader = new StringReader(sb.toString());
             }
         } catch (Exception e) {
             logger.error("get remote synonym reader {} error!", e, location);
