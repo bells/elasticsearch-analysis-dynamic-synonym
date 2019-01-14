@@ -7,10 +7,12 @@ import com.bellszhu.elasticsearch.plugin.synonym.service.DynamicSynonymAnalysisS
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleComponent;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
+import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.analysis.AnalysisRegistry;
 import org.elasticsearch.index.analysis.TokenFilterFactory;
@@ -39,18 +41,30 @@ public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
     private PluginComponent pluginComponent = new PluginComponent();
 
     @Override
-    public Collection<Object> createComponents(
-            Client client,
-            ClusterService clusterService,
-            ThreadPool threadPool,
-            ResourceWatcherService resourceWatcherService,
-            ScriptService scriptService,
-            NamedXContentRegistry xContentRegistry
-    ) {
+    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool,
+                                               ResourceWatcherService resourceWatcherService, ScriptService scriptService,
+                                               NamedXContentRegistry xContentRegistry, Environment environment,
+                                               NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry) {
+
         Collection<Object> components = new ArrayList<>();
         components.add(pluginComponent);
         return components;
     }
+
+
+//    @Override
+//    public Collection<Object> createComponents(
+//            Client client,
+//            ClusterService clusterService,
+//            ThreadPool threadPool,
+//            ResourceWatcherService resourceWatcherService,
+//            ScriptService scriptService,
+//            NamedXContentRegistry xContentRegistry
+//    ) {
+//        Collection<Object> components = new ArrayList<>();
+//        components.add(pluginComponent);
+//        return components;
+//    }
 
     @Override
     public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
