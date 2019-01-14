@@ -3,21 +3,17 @@
  */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.Path;
-
 import org.apache.commons.codec.Charsets;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
-import org.elasticsearch.common.io.FileSystemUtils;
-import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
+
+import java.io.*;
+import java.nio.file.Path;
 
 
 /**
@@ -26,7 +22,7 @@ import org.elasticsearch.env.Environment;
  */
 public class LocalSynonymFile implements SynonymFile {
 
-	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+	public static Logger logger = Loggers.getLogger("dynamic-synonym");
 
 	private String format;
 
@@ -82,19 +78,14 @@ public class LocalSynonymFile implements SynonymFile {
 		Reader reader = null;
 		BufferedReader br = null;
 		try {
-			reader = FileSystemUtils.newBufferedReader(
-                    synonymFilePath.toUri().toURL(), Charsets.UTF_8);
-			/*
-			br = new BufferedReader(new InputStreamReader(
-					synonymFileURL.openStream(), Charsets.UTF_8));
-			StringBuffer sb = new StringBuffer("");
-			String line = null;
+            br = new BufferedReader(new InputStreamReader(synonymFilePath.toUri().toURL().openStream(), Charsets.UTF_8));
+			StringBuffer sb = new StringBuffer();
+			String line;
 			while ((line = br.readLine()) != null) {
 				logger.info("reload local synonym: {}", line);
 				sb.append(line).append(System.getProperty("line.separator"));
 			}
-			reader = new FastStringReader(sb.toString());
-			*/
+			reader = new StringReader(sb.toString());
 		} catch (IOException e) {
 			logger.error("get local synonym reader {} error!", e, location);
 			throw new IllegalArgumentException(

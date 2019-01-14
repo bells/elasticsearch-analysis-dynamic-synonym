@@ -25,7 +25,7 @@ import org.apache.lucene.analysis.tokenattributes.*;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.util.*;
 import org.apache.lucene.util.fst.FST;
-import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.logging.Loggers;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -102,7 +102,7 @@ import java.util.Arrays;
 
 public final class DynamicSynonymFilter extends TokenFilter {
 
-	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+	public static Logger logger = Loggers.getLogger("dynamic-synonym");
 
 	public static final String TYPE_SYNONYM = "SYNONYM";
 

@@ -19,7 +19,7 @@ import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
@@ -29,8 +29,6 @@ import org.elasticsearch.index.analysis.TokenizerFactory;
 import org.elasticsearch.indices.analysis.AnalysisModule;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.*;
 
 /**
@@ -41,7 +39,7 @@ import java.util.concurrent.*;
 public class DynamicSynonymTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
-	public static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+	public static Logger logger = Loggers.getLogger("dynamic-synonym");
 
 	/**
      * 静态的id生成器
