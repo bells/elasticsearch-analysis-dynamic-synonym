@@ -14,6 +14,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
+import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
 
@@ -21,6 +22,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 /**
  * @author bellszhu
@@ -61,7 +64,14 @@ public class RemoteSynonymFile implements SynonymFile {
 	}
 
 	@Override
-	public SynonymMap reloadSynonymMap() {
+	public SynonymMap reloadSynonymMap(){
+		SpecialPermission.check();
+		return AccessController.doPrivileged((PrivilegedAction<SynonymMap>) () -> {
+			return reloadSynonymMapUnprivileged();
+		});
+	}
+
+	public SynonymMap reloadSynonymMapUnprivileged() {
 		Reader rulesReader = null;
 		try {
 			logger.info("start reload remote synonym from {}.", location);
@@ -93,10 +103,18 @@ public class RemoteSynonymFile implements SynonymFile {
 		}
 	}
 
+	@Override
+	public Reader getReader() {
+		SpecialPermission.check();
+		return AccessController.doPrivileged((PrivilegedAction<Reader>) () -> {
+			return getReaderUnprivileged();
+		});
+	}
+
 	/**
 	 * 从远程服务器上下载自定义词条
 	 */
-	public Reader getReader() {
+	public Reader getReaderUnprivileged() {
 		Reader reader = null;
 		RequestConfig rc = RequestConfig.custom()
 				.setConnectionRequestTimeout(10 * 1000)
@@ -155,6 +173,13 @@ public class RemoteSynonymFile implements SynonymFile {
 
 	@Override
 	public boolean isNeedReloadSynonymMap() {
+		SpecialPermission.check();
+		return AccessController.doPrivileged((PrivilegedAction<Boolean>) () -> {
+			return isNeedReloadSynonymMapUnprivileged();
+		});
+    }
+
+	public boolean isNeedReloadSynonymMapUnprivileged() {
 		RequestConfig rc = RequestConfig.custom()
 				.setConnectionRequestTimeout(10 * 1000)
 				.setConnectTimeout(10 * 1000).setSocketTimeout(15 * 1000)
