@@ -62,6 +62,7 @@ public class DynamicSynonymTokenFilterFactory extends
 	private final boolean expand;
 	private final String format;
 	private final int interval;
+	private final boolean ignoreOffset;
 
 	private SynonymMap synonymMap;
 	private Map<DynamicSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<DynamicSynonymFilter, Integer>();
@@ -117,6 +118,7 @@ public class DynamicSynonymTokenFilterFactory extends
 		this.ignoreCase = settings.getAsBoolean("ignore_case", false);
 		this.expand = settings.getAsBoolean("expand", true);
 		this.format = settings.get("format", "");
+		this.ignoreOffset = settings.getAsBoolean("ignore_offset", true);
 
 		String tokenizerName = settings.get("tokenizer", "whitespace");
 
@@ -162,7 +164,7 @@ public class DynamicSynonymTokenFilterFactory extends
 	@Override
 	public TokenStream create(TokenStream tokenStream) {
 		DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(
-				tokenStream, synonymMap, ignoreCase);
+				tokenStream, synonymMap, ignoreCase,ignoreOffset);
 		dynamicSynonymFilters.put(dynamicSynonymFilter, 1);
 
 		// fst is null means no synonyms

@@ -109,6 +109,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
 	private SynonymMap synonyms;
 
 	private final boolean ignoreCase;
+	private final boolean ignoreOffset;
 	private int rollBufferSize;
 
 	private int captureCount;
@@ -263,9 +264,12 @@ public final class DynamicSynonymFilter extends TokenFilter {
 	 *            when you create the {@link SynonymMap}
 	 */
 	public DynamicSynonymFilter(TokenStream input, SynonymMap synonyms,
-			boolean ignoreCase) {
+			boolean ignoreCase
+			,boolean ignoreOffset
+		) {
 		super(input);
 		this.ignoreCase = ignoreCase;
+		this.ignoreOffset = ignoreOffset;
 		update(synonyms);
 	}
 
@@ -589,7 +593,9 @@ public final class DynamicSynonymFilter extends TokenFilter {
 					if (endOffset == -1) {
 						endOffset = input.endOffset;
 					}
-					offsetAtt.setOffset(input.startOffset, endOffset);
+					if(!ignoreOffset){
+						offsetAtt.setOffset(input.startOffset, endOffset);
+					}
 					posIncrAtt.setPositionIncrement(posIncr);
 					posLenAtt.setPositionLength(outputs.getLastPosLength());
 					if (outputs.count == 0) {
@@ -623,7 +629,9 @@ public final class DynamicSynonymFilter extends TokenFilter {
 					}
 					clearAttributes();
 					// Keep offset from last input token:
-					offsetAtt.setOffset(lastStartOffset, lastEndOffset);
+                    if(!this.ignoreOffset){
+	                    offsetAtt.setOffset(lastStartOffset, lastEndOffset);
+                    }
 					termAtt.copyBuffer(output.chars, output.offset,
 							output.length);
 					typeAtt.setType(TYPE_SYNONYM);
