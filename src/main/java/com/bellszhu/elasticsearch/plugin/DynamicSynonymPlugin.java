@@ -3,6 +3,7 @@
  */
 package com.bellszhu.elasticsearch.plugin;
 
+import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymGraphTokenFilterFactory;
 import com.bellszhu.elasticsearch.plugin.synonym.service.DynamicSynonymAnalysisService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -80,7 +81,7 @@ public class DynamicSynonymPlugin extends Plugin  implements AnalysisPlugin {
             @Override
             public TokenFilterFactory get(IndexSettings indexSettings, Environment environment, String name, Settings settings)
                     throws IOException {
-                return DynamicSynonymTokenFilterFactory.getInstance(indexSettings, environment, name, settings, pluginComponent.getAnalysisRegistry());
+                return DynamicSynonymGraphTokenFilterFactory.getInstance(indexSettings, environment, name, settings, pluginComponent.getAnalysisRegistry());
             }
 
             @Override

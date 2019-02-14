@@ -595,6 +595,8 @@ public final class DynamicSynonymFilter extends TokenFilter {
 					}
 					if(!ignoreOffset){
 						offsetAtt.setOffset(input.startOffset, endOffset);
+					}else{
+						logger.info("dynamic synonym offset ignored");
 					}
 					posIncrAtt.setPositionIncrement(posIncr);
 					posLenAtt.setPositionLength(outputs.getLastPosLength());
@@ -631,6 +633,8 @@ public final class DynamicSynonymFilter extends TokenFilter {
 					// Keep offset from last input token:
                     if(!this.ignoreOffset){
 	                    offsetAtt.setOffset(lastStartOffset, lastEndOffset);
+                    }else{
+	                    logger.info("set offset ignored");
                     }
 					termAtt.copyBuffer(output.chars, output.offset,
 							output.length);
