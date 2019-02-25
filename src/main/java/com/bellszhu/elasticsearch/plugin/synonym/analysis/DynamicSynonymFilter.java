@@ -102,7 +102,7 @@ import java.util.Arrays;
 
 public final class DynamicSynonymFilter extends TokenFilter {
 
-	private final Logger logger = LogManager.getLogger(getClass());
+	private final Logger logger = LogManager.getLogger("dynamic-synonym");
 
 	public static final String TYPE_SYNONYM = "SYNONYM";
 

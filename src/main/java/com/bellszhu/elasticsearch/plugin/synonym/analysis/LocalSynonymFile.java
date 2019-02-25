@@ -22,7 +22,7 @@ import java.nio.file.Path;
  */
 public class LocalSynonymFile implements SynonymFile {
 
-	private final Logger logger = LogManager.getLogger(getClass());
+	private final Logger logger = LogManager.getLogger("dynamic-synonym");
 
 	private String format;
 

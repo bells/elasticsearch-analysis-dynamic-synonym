@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DynamicSynonymGraphTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
-	private final Logger logger = LogManager.getLogger(getClass());
+	private final Logger logger = LogManager.getLogger("dynamic-synonym");
 
 	/**
      * 静态的id生成器

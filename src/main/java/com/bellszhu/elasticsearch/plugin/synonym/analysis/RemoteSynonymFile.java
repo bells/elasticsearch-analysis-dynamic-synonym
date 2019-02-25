@@ -31,7 +31,7 @@ import java.security.PrivilegedAction;
  */
 public class RemoteSynonymFile implements SynonymFile {
 
-	private final Logger logger = LogManager.getLogger(getClass());
+	private final Logger logger = LogManager.getLogger("dynamic-synonym");
 
 	private CloseableHttpClient httpclient = HttpClients.createDefault();
 
