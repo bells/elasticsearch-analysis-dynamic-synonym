@@ -1,6 +1,7 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
@@ -8,7 +9,6 @@ import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DynamicSynonymGraphTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
-	public static Logger logger = Loggers.getLogger("dynamic-synonym");
+	private final Logger logger = LogManager.getLogger(getClass());
 
 	/**
      * 静态的id生成器

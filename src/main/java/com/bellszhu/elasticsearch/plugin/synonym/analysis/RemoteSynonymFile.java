@@ -9,13 +9,13 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
 import org.elasticsearch.SpecialPermission;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
 
 import java.io.BufferedReader;
@@ -31,7 +31,7 @@ import java.security.PrivilegedAction;
  */
 public class RemoteSynonymFile implements SynonymFile {
 
-	public static Logger logger = Loggers.getLogger("dynamic-synonym");
+	private final Logger logger = LogManager.getLogger(getClass());
 
 	private CloseableHttpClient httpclient = HttpClients.createDefault();
 

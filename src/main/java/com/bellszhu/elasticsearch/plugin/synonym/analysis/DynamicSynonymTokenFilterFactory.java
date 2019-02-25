@@ -1,25 +1,14 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
 
-import java.util.Map;
-import java.util.WeakHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
@@ -29,7 +18,10 @@ import org.elasticsearch.index.analysis.TokenizerFactory;
 import org.elasticsearch.indices.analysis.AnalysisModule;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 
@@ -39,8 +31,7 @@ import java.util.concurrent.*;
 public class DynamicSynonymTokenFilterFactory extends
 		AbstractTokenFilterFactory {
 
-	public static Logger logger = Loggers.getLogger("dynamic-synonym");
-
+	private final Logger logger = LogManager.getLogger(getClass());
 	/**
      * 静态的id生成器
      */

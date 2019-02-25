@@ -17,29 +17,22 @@
 
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.core.FlattenGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
-import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
-import org.apache.lucene.analysis.tokenattributes.PositionLengthAttribute;
-import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.analysis.tokenattributes.*;
 import org.apache.lucene.store.ByteArrayDataInput;
-import org.apache.lucene.util.AttributeSource;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.lucene.util.RollingBuffer;
 import org.apache.lucene.util.fst.FST;
-import org.elasticsearch.common.logging.Loggers;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
 // TODO: maybe we should resolve token -> wordID then run
 // FST on wordIDs, for better perf?
@@ -85,7 +78,7 @@ import org.elasticsearch.common.logging.Loggers;
 public final class DynamicSynonymGraphFilter extends TokenFilter {
 
   public static final String TYPE_SYNONYM = "SYNONYM";
-  public static Logger logger = Loggers.getLogger("dynamic-synonym");
+
   private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
   private final PositionIncrementAttribute posIncrAtt = addAttribute(PositionIncrementAttribute.class);
   private final PositionLengthAttribute posLenAtt = addAttribute(PositionLengthAttribute.class);

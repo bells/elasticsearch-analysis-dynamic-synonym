@@ -17,6 +17,7 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
  * limitations under the License.
  */
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
@@ -25,7 +26,6 @@ import org.apache.lucene.analysis.tokenattributes.*;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.util.*;
 import org.apache.lucene.util.fst.FST;
-import org.elasticsearch.common.logging.Loggers;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -102,7 +102,7 @@ import java.util.Arrays;
 
 public final class DynamicSynonymFilter extends TokenFilter {
 
-	public static Logger logger = Loggers.getLogger("dynamic-synonym");
+	private final Logger logger = LogManager.getLogger(getClass());
 
 	public static final String TYPE_SYNONYM = "SYNONYM";
 

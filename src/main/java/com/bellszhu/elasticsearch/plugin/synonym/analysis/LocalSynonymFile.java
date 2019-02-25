@@ -4,12 +4,12 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
 import org.apache.commons.codec.Charsets;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.Environment;
 
 import java.io.*;
@@ -22,7 +22,7 @@ import java.nio.file.Path;
  */
 public class LocalSynonymFile implements SynonymFile {
 
-	public static Logger logger = Loggers.getLogger("dynamic-synonym");
+	private final Logger logger = LogManager.getLogger(getClass());
 
 	private String format;
 
