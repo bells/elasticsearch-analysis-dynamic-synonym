@@ -1,6 +1,7 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
@@ -8,7 +9,6 @@ import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
@@ -36,7 +36,7 @@ public class DynamicSynonymTokenFilterFactory extends
      * Static id generator
      */
     private static final AtomicInteger id = new AtomicInteger(1);
-    private static Logger logger = ESLoggerFactory.getLogger("dynamic-synonym");
+    private static Logger logger = LogManager.getLogger("dynamic-synonym");
     private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
         Thread thread = new Thread(r);
         thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
