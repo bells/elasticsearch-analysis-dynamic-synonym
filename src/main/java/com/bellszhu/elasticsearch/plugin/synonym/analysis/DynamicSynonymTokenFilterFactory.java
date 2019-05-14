@@ -111,12 +111,15 @@ public class DynamicSynonymTokenFilterFactory extends
 
     @Override
     public TokenStream create(TokenStream tokenStream) {
-        DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(
-                tokenStream, synonymMap, ignoreCase);
+        // fst is null means no synonyms
+        if (synonymMap == null || synonymMap.fst == null) {
+            return tokenStream;
+        }
+
+        DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(tokenStream, synonymMap, ignoreCase);
         dynamicSynonymFilters.put(dynamicSynonymFilter, 1);
 
-        // fst is null means no synonyms
-        return synonymMap.fst == null ? tokenStream : dynamicSynonymFilter;
+        return dynamicSynonymFilter;
     }
 
     public class Monitor implements Runnable {
