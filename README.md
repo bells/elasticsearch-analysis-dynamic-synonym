@@ -6,7 +6,7 @@ The dynamic synonym plugin adds a synonym token filter that reloads the synonym 
 
 dynamic synonym version | ES version
 -----------|-----------
-master| 6.x -> master
+master| 7.x -> master
 6.1.4 |	6.1.4
 5.2.0 |	5.2.0
 5.1.1 |	5.1.1
