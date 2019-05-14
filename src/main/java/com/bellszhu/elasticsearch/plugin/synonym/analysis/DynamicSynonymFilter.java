@@ -598,13 +598,13 @@ public final class DynamicSynonymFilter extends TokenFilter {
             }
             if (count == endOffsets.length) {
                 final int[] next = new int[ArrayUtil.oversize(1 + count,
-                        RamUsageEstimator.NUM_BYTES_INT)];
+                                                              Integer.BYTES)];
                 System.arraycopy(endOffsets, 0, next, 0, count);
                 endOffsets = next;
             }
             if (count == posLengths.length) {
                 final int[] next = new int[ArrayUtil.oversize(1 + count,
-                        RamUsageEstimator.NUM_BYTES_INT)];
+                                                              Integer.BYTES)];
                 System.arraycopy(posLengths, 0, next, 0, count);
                 posLengths = next;
             }
