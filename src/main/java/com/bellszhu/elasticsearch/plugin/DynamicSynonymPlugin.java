@@ -4,7 +4,6 @@
 package com.bellszhu.elasticsearch.plugin;
 
 import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
-import com.bellszhu.elasticsearch.plugin.synonym.service.DynamicSynonymAnalysisService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.LifecycleComponent;
@@ -14,7 +13,6 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.index.IndexSettings;
-import org.elasticsearch.index.analysis.AnalysisRegistry;
 import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.indices.analysis.AnalysisModule;
 import org.elasticsearch.plugins.AnalysisPlugin;
@@ -30,65 +28,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static java.util.Collections.singletonList;
+import static org.elasticsearch.plugins.AnalysisPlugin.requiresAnalysisSettings;
+
 
 /**
  * @author bellszhu
  */
 public class DynamicSynonymPlugin extends Plugin implements AnalysisPlugin {
-    private PluginComponent pluginComponent = new PluginComponent();
-
-    @Override
-    public Collection<Object> createComponents(Client client,
-                                               ClusterService clusterService,
-                                               ThreadPool threadPool,
-                                               ResourceWatcherService resourceWatcherService,
-                                               ScriptService scriptService,
-                                               NamedXContentRegistry xContentRegistry,
-                                               Environment environment,
-                                               NodeEnvironment nodeEnvironment,
-                                               NamedWriteableRegistry namedWriteableRegistry) {
-        Collection<Object> components = new ArrayList<>();
-        components.add(pluginComponent);
-        return components;
-    }
-
-    @Override
-    public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
-        return singletonList(DynamicSynonymAnalysisService.class);
-    }
 
     @Override
     public Map<String, AnalysisModule.AnalysisProvider<TokenFilterFactory>> getTokenFilters() {
-        Map<String, AnalysisModule.AnalysisProvider<org.elasticsearch.index.analysis.TokenFilterFactory>> extra = new HashMap<>();
-
-        extra.put("dynamic_synonym", new AnalysisModule.AnalysisProvider<TokenFilterFactory>() {
-
-            @Override
-            public TokenFilterFactory get(IndexSettings indexSettings, Environment environment, String name, Settings settings)
-                    throws IOException {
-                return new DynamicSynonymTokenFilterFactory(indexSettings, environment, name, settings, pluginComponent.getAnalysisRegistry());
-            }
-
-            @Override
-            public boolean requiresAnalysisSettings() {
-                return true;
-            }
-        });
+        Map<String, AnalysisModule.AnalysisProvider<TokenFilterFactory>> extra = new HashMap<>();
+        extra.put("dynamic_synonym", requiresAnalysisSettings(DynamicSynonymTokenFilterFactory::new));
         return extra;
-    }
-
-
-    public static class PluginComponent {
-
-        private AnalysisRegistry analysisRegistry;
-
-        AnalysisRegistry getAnalysisRegistry() {
-            return analysisRegistry;
-        }
-
-        public void setAnalysisRegistry(AnalysisRegistry analysisRegistry) {
-            this.analysisRegistry = analysisRegistry;
-        }
-
     }
 }
