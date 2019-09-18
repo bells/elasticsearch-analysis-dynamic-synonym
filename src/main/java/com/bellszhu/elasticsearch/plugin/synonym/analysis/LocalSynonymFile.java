@@ -73,7 +73,7 @@ public class LocalSynonymFile implements SynonymFile {
     public Reader getReader() {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
                 synonymFilePath.toUri().toURL().openStream(), Charsets.UTF_8))) {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) {
                 logger.info("reload local synonym: {}", line);
