@@ -63,7 +63,7 @@ public class LocalSynonymFile implements SynonymFile {
             SynonymMap.Builder parser = RemoteSynonymFile.getSynonymParser(rulesReader, format, expand, analyzer);
             return parser.build();
         } catch (Exception e) {
-            logger.error("reload local synonym {} error!", e, location);
+            logger.error("reload local synonym {} error!", location, e);
             throw new IllegalArgumentException(
                     "could not reload local synonyms file to build synonyms", e);
         }
@@ -81,7 +81,7 @@ public class LocalSynonymFile implements SynonymFile {
             }
             return new StringReader(sb.toString());
         } catch (IOException e) {
-            logger.error("get local synonym reader {} error!", e, location);
+            logger.error("get local synonym reader {} error!", location, e);
             throw new IllegalArgumentException(
                     "IOException while reading local synonyms file", e);
         }
@@ -97,8 +97,7 @@ public class LocalSynonymFile implements SynonymFile {
                 return true;
             }
         } catch (Exception e) {
-            logger.error("check need reload local synonym {} error!", e,
-                    location);
+            logger.error("check need reload local synonym {} error!", location, e);
         }
 
         return false;

@@ -92,7 +92,7 @@ public class RemoteSynonymFile implements SynonymFile {
             parser = getSynonymParser(rulesReader, format, expand, analyzer);
             return parser.build();
         } catch (Exception e) {
-            logger.error("reload remote synonym {} error!", e, location);
+            logger.error("reload remote synonym {} error!", location, e);
             throw new IllegalArgumentException(
                     "could not reload remote synonyms file to build synonyms",
                     e);
@@ -112,7 +112,7 @@ public class RemoteSynonymFile implements SynonymFile {
             try {
                 return httpclient.execute(httpUriRequest);
             } catch (IOException e) {
-                logger.error("Unable to execute HTTP request: {}", e);
+                logger.error("Unable to execute HTTP request.", e);
             }
             return null;
         });
@@ -155,7 +155,7 @@ public class RemoteSynonymFile implements SynonymFile {
                 reader = new StringReader(sb.toString());
             }
         } catch (Exception e) {
-            logger.error("get remote synonym reader {} error!", e, location);
+            logger.error("get remote synonym reader {} error!", location, e);
             throw new IllegalArgumentException(
                     "Exception while reading remote synonyms file", e);
         } finally {
