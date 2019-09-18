@@ -3,6 +3,12 @@
  */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
+import org.apache.http.Header;
+import org.apache.http.HeaderElement;
+import org.apache.http.HeaderIterator;
+import org.apache.http.HttpEntity;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.StatusLine;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -10,6 +16,7 @@ import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.params.HttpParams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -26,6 +33,7 @@ import java.io.StringReader;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.ParseException;
+import java.util.Locale;
 
 /**
  * @author bellszhu
@@ -111,10 +119,186 @@ public class RemoteSynonymFile implements SynonymFile {
         return AccessController.doPrivileged((PrivilegedAction<CloseableHttpResponse>) () -> {
             try {
                 return httpclient.execute(httpUriRequest);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 logger.error("Unable to execute HTTP request.", e);
             }
-            return null;
+            // Fix NPE if request remote file failed.
+            return new CloseableHttpResponse() {
+                private Header[] headers = {new Header() {
+                    @Override
+                    public String getName() {
+                        return "Retry-After";
+                    }
+
+                    /**
+                     * The delay time
+                     * @return time of milliseconds
+                     */
+                    @Override
+                    public String getValue() {
+                        return "300000";
+                    }
+
+                    @Override
+                    public HeaderElement[] getElements() throws org.apache.http.ParseException {
+                        return new HeaderElement[0];
+                    }
+                }, new Header() {
+                    @Override
+                    public String getName() {
+                        return "Content-Type";
+                    }
+
+                    @Override
+                    public String getValue() {
+                        return "text/plain;charset=utf-8";
+                    }
+
+                    @Override
+                    public HeaderElement[] getElements() throws org.apache.http.ParseException {
+                        return new HeaderElement[0];
+                    }
+                }};
+
+                @Override
+                public ProtocolVersion getProtocolVersion() {
+                    return new ProtocolVersion("HTTP", 1, 1);
+                }
+
+                @Override
+                public boolean containsHeader(String s) {
+                    return indexOf(s) >= 0;
+                }
+
+                private int indexOf(String s) {
+                    int i = 0;
+                    for (Header header : headers) {
+                        if (header.getName().equalsIgnoreCase(s)) {
+                            break;
+                        }
+                        i++;
+                    }
+                    return i < headers.length ? i : -1;
+                }
+
+                @Override
+                public Header[] getHeaders(String s) {
+                    int index = indexOf(s);
+                    if (index >= 0) {
+                        return new Header[] { headers[index] };
+                    }
+                    return null;
+                }
+
+                @Override
+                public Header getFirstHeader(String s) {
+                    return headers[0];
+                }
+
+                @Override
+                public Header getLastHeader(String s) {
+                    return headers[headers.length - 1];
+                }
+
+                @Override
+                public Header[] getAllHeaders() {
+                    return headers;
+                }
+
+                @Override
+                public void addHeader(Header header) { }
+
+                @Override
+                public void addHeader(String s, String s1) { }
+
+                @Override
+                public void setHeader(Header header) { }
+
+                @Override
+                public void setHeader(String s, String s1) { }
+
+                @Override
+                public void setHeaders(Header[] headers) { }
+
+                @Override
+                public void removeHeader(Header header) { }
+
+                @Override
+                public void removeHeaders(String s) { }
+
+                @Override
+                public HeaderIterator headerIterator() {
+                    return null;
+                }
+
+                @Override
+                public HeaderIterator headerIterator(String s) {
+                    return null;
+                }
+
+                @Override
+                public HttpParams getParams() {
+                    return null;
+                }
+
+                @Override
+                public void setParams(HttpParams httpParams) { }
+
+                @Override
+                public StatusLine getStatusLine() {
+                    return new StatusLine() {
+
+                        @Override
+                        public ProtocolVersion getProtocolVersion() {
+                            return new ProtocolVersion("HTTP", 1, 1);
+                        }
+
+                        @Override
+                        public int getStatusCode() {
+                            return 503;
+                        }
+
+                        @Override
+                        public String getReasonPhrase() {
+                            return "The server is currently unable to process the request due to temporary server maintenance or overload.";
+                        }
+                    };
+                }
+
+                @Override
+                public void setStatusLine(StatusLine statusLine) { }
+
+                @Override
+                public void setStatusLine(ProtocolVersion protocolVersion, int i) { }
+
+                @Override
+                public void setStatusLine(ProtocolVersion protocolVersion, int i, String s) { }
+
+                @Override
+                public void setStatusCode(int i) throws IllegalStateException { }
+
+                @Override
+                public void setReasonPhrase(String s) throws IllegalStateException { }
+
+                @Override
+                public HttpEntity getEntity() {
+                    return null;
+                }
+
+                @Override
+                public void setEntity(HttpEntity httpEntity) { }
+
+                @Override
+                public Locale getLocale() {
+                    return null;
+                }
+
+                @Override
+                public void setLocale(Locale locale) { }
+
+                @Override
+                public void close() { }
+            };
         });
     }
 
