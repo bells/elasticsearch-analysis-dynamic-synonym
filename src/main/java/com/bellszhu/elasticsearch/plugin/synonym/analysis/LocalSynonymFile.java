@@ -93,8 +93,10 @@ public class LocalSynonymFile implements SynonymFile {
             return new StringReader(sb.toString());
         } catch (IOException e) {
             logger.error("get local synonym reader {} error!", location, e);
-            throw new IllegalArgumentException(
-                    "IOException while reading local synonyms file", e);
+//            throw new IllegalArgumentException(
+//                    "IOException while reading local synonyms file", e);
+            // Fix #54 Returns blank if synonym file has be deleted.
+            return new StringReader("");
         }
     }
 

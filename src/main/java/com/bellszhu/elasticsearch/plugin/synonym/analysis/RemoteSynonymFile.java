@@ -119,186 +119,10 @@ public class RemoteSynonymFile implements SynonymFile {
         return AccessController.doPrivileged((PrivilegedAction<CloseableHttpResponse>) () -> {
             try {
                 return httpclient.execute(httpUriRequest);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 logger.error("Unable to execute HTTP request.", e);
             }
-            // Fix NPE if request remote file failed.
-            return new CloseableHttpResponse() {
-                private Header[] headers = {new Header() {
-                    @Override
-                    public String getName() {
-                        return "Retry-After";
-                    }
-
-                    /**
-                     * The delay time
-                     * @return time of milliseconds
-                     */
-                    @Override
-                    public String getValue() {
-                        return "300000";
-                    }
-
-                    @Override
-                    public HeaderElement[] getElements() throws org.apache.http.ParseException {
-                        return new HeaderElement[0];
-                    }
-                }, new Header() {
-                    @Override
-                    public String getName() {
-                        return "Content-Type";
-                    }
-
-                    @Override
-                    public String getValue() {
-                        return "text/plain;charset=utf-8";
-                    }
-
-                    @Override
-                    public HeaderElement[] getElements() throws org.apache.http.ParseException {
-                        return new HeaderElement[0];
-                    }
-                }};
-
-                @Override
-                public ProtocolVersion getProtocolVersion() {
-                    return new ProtocolVersion("HTTP", 1, 1);
-                }
-
-                @Override
-                public boolean containsHeader(String s) {
-                    return indexOf(s) >= 0;
-                }
-
-                private int indexOf(String s) {
-                    int i = 0;
-                    for (Header header : headers) {
-                        if (header.getName().equalsIgnoreCase(s)) {
-                            break;
-                        }
-                        i++;
-                    }
-                    return i < headers.length ? i : -1;
-                }
-
-                @Override
-                public Header[] getHeaders(String s) {
-                    int index = indexOf(s);
-                    if (index >= 0) {
-                        return new Header[] { headers[index] };
-                    }
-                    return null;
-                }
-
-                @Override
-                public Header getFirstHeader(String s) {
-                    return headers[0];
-                }
-
-                @Override
-                public Header getLastHeader(String s) {
-                    return headers[headers.length - 1];
-                }
-
-                @Override
-                public Header[] getAllHeaders() {
-                    return headers;
-                }
-
-                @Override
-                public void addHeader(Header header) { }
-
-                @Override
-                public void addHeader(String s, String s1) { }
-
-                @Override
-                public void setHeader(Header header) { }
-
-                @Override
-                public void setHeader(String s, String s1) { }
-
-                @Override
-                public void setHeaders(Header[] headers) { }
-
-                @Override
-                public void removeHeader(Header header) { }
-
-                @Override
-                public void removeHeaders(String s) { }
-
-                @Override
-                public HeaderIterator headerIterator() {
-                    return null;
-                }
-
-                @Override
-                public HeaderIterator headerIterator(String s) {
-                    return null;
-                }
-
-                @Override
-                public HttpParams getParams() {
-                    return null;
-                }
-
-                @Override
-                public void setParams(HttpParams httpParams) { }
-
-                @Override
-                public StatusLine getStatusLine() {
-                    return new StatusLine() {
-
-                        @Override
-                        public ProtocolVersion getProtocolVersion() {
-                            return new ProtocolVersion("HTTP", 1, 1);
-                        }
-
-                        @Override
-                        public int getStatusCode() {
-                            return 503;
-                        }
-
-                        @Override
-                        public String getReasonPhrase() {
-                            return "The server is currently unable to process the request due to temporary server maintenance or overload.";
-                        }
-                    };
-                }
-
-                @Override
-                public void setStatusLine(StatusLine statusLine) { }
-
-                @Override
-                public void setStatusLine(ProtocolVersion protocolVersion, int i) { }
-
-                @Override
-                public void setStatusLine(ProtocolVersion protocolVersion, int i, String s) { }
-
-                @Override
-                public void setStatusCode(int i) throws IllegalStateException { }
-
-                @Override
-                public void setReasonPhrase(String s) throws IllegalStateException { }
-
-                @Override
-                public HttpEntity getEntity() {
-                    return null;
-                }
-
-                @Override
-                public void setEntity(HttpEntity httpEntity) { }
-
-                @Override
-                public Locale getLocale() {
-                    return null;
-                }
-
-                @Override
-                public void setLocale(Locale locale) { }
-
-                @Override
-                public void close() { }
-            };
+            return null;
         });
     }
 
@@ -306,7 +130,7 @@ public class RemoteSynonymFile implements SynonymFile {
      * Download custom terms from a remote server
      */
     public Reader getReader() {
-        Reader reader = null;
+        Reader reader;
         RequestConfig rc = RequestConfig.custom()
                 .setConnectionRequestTimeout(10 * 1000)
                 .setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
@@ -337,11 +161,13 @@ public class RemoteSynonymFile implements SynonymFile {
                             .append(System.getProperty("line.separator"));
                 }
                 reader = new StringReader(sb.toString());
-            }
+            } else reader = new StringReader("");
         } catch (Exception e) {
             logger.error("get remote synonym reader {} error!", location, e);
-            throw new IllegalArgumentException(
-                    "Exception while reading remote synonyms file", e);
+//            throw new IllegalArgumentException(
+//                    "Exception while reading remote synonyms file", e);
+            // Fix #54 Returns blank if synonym file has be deleted.
+            reader = new StringReader("");
         } finally {
             try {
                 if (br != null) {
