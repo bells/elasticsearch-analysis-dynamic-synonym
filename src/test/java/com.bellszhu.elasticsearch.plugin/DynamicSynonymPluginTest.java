@@ -63,7 +63,7 @@ public class DynamicSynonymPluginTest {
             "      \"filter\":{\n" +
             "        \"local_synonym\": {\n" +
             "            \"type\": \"dynamic_synonym\",\n" +
-            "            \"synonyms_path\": \"" + localPath + "\"," +
+            "            \"synonyms_path\": \"" + localPath + "\",\n" +
             "            \"interval\": \"10\"\n" +
             "        }"+
             "      },\n" +
@@ -101,7 +101,8 @@ public class DynamicSynonymPluginTest {
             "      \"filter\":{\n" +
             "        \"remote_synonym\": {\n" +
             "            \"type\": \"dynamic_synonym\",\n" +
-            "            \"synonyms_path\": \"http://localhost:8080/synonym\"" +
+            "            \"synonyms_path\": \"http://localhost:8080/api/synonym\",\n" +
+            "            \"interval\": \"10\"\n" +
             "        }"+
             "      },\n" +
             "      \"char_filter\":{\n" +
@@ -132,58 +133,82 @@ public class DynamicSynonymPluginTest {
     }
 
     private synchronized void analyzer(String indexName) throws InterruptedException {
-        AnalyzeAction.Request analyzeRequest = new AnalyzeAction.Request(indexName);
-        analyzeRequest.text("肯德基");
-        analyzeRequest.analyzer("synonym_analyzer");
-        ActionFuture<AnalyzeAction.Response> actionFuture = runner.admin().indices().analyze(analyzeRequest);
-        AnalyzeAction.Response response = actionFuture.actionGet(10L, TimeUnit.SECONDS);
-        List<AnalyzeAction.AnalyzeToken> tokens = response.getTokens();
+        List<AnalyzeAction.AnalyzeToken> tokens = tokens(indexName, "肯德基");
         for (AnalyzeAction.AnalyzeToken token : tokens) {
             System.out.println(token.getTerm() + " => " + token.getType());
         }
 
         /*
-        Wait 2 minute to modify the synonym file and run again.
+        Wait one minute to modify the synonym file and run again.
          */
-        wait(1000 * 120);
+        wait(1000 * 60);
 
-        analyzeRequest.text("肯德基");
-        analyzeRequest.analyzer("synonym_analyzer");
-        actionFuture = runner.admin().indices().analyze(analyzeRequest);
-        response = actionFuture.actionGet(10L, TimeUnit.SECONDS);
-        tokens = response.getTokens();
+        tokens = tokens(indexName, "金拱门");
         for (AnalyzeAction.AnalyzeToken token : tokens) {
             System.out.println(token.getTerm() + " => " + token.getType());
         }
 
-        analyzeRequest.text("america");
-        analyzeRequest.analyzer("synonym_analyzer");
-        actionFuture = runner.admin().indices().analyze(analyzeRequest);
-        response = actionFuture.actionGet(10L, TimeUnit.SECONDS);
-        tokens = response.getTokens();
+        tokens = tokens(indexName, "america");
         for (AnalyzeAction.AnalyzeToken token : tokens) {
             System.out.println(token.getTerm() + " => " + token.getType());
         }
     }
 
+    private List<AnalyzeAction.AnalyzeToken> tokens(String indexName, String text) {
+        AnalyzeAction.Request analyzeRequest = new AnalyzeAction.Request(indexName);
+        analyzeRequest.text(text);
+        analyzeRequest.analyzer("synonym_analyzer");
+        ActionFuture<AnalyzeAction.Response> actionFuture = runner.admin().indices().analyze(analyzeRequest);
+        AnalyzeAction.Response response = actionFuture.actionGet(10L, TimeUnit.SECONDS);
+        return response.getTokens();
+    }
+
     @Test
-    public void testLocalAbsolute() throws InterruptedException {
+    public void testLocalAbsolute() {
         String index = "test_local_absolute";
         String absolutePath = "target/test-classes/synonym.txt";
         // create an index
         createIndexWithLocalSynonym(index, absolutePath);
 
-        analyzer(index);
+        String text = "肯德基";
+        List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
+        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
+            System.out.println(token.getTerm() + " => " + token.getType());
+        }
+
+        assert analyzeTokens.size() == 3;
+        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
+            String key = token.getTerm();
+            if (text.equalsIgnoreCase(key)) {
+                assert token.getType().equalsIgnoreCase("word");
+            } else {
+                assert token.getType().equalsIgnoreCase("synonym");
+            }
+        }
     }
 
     @Test
-    public void testLocal() throws InterruptedException {
+    public void testLocal() {
         String index = "test_local_relative";
         String absolutePath = "synonym.txt";
         // create an index
         createIndexWithLocalSynonym(index, absolutePath);
 
-        analyzer(index);
+        String text = "kfc";
+        List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
+        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
+            System.out.println(token.getTerm() + " => " + token.getType());
+        }
+
+        assert analyzeTokens.size() == 3;
+        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
+            String key = token.getTerm();
+            if (text.equalsIgnoreCase(key)) {
+                assert token.getType().equalsIgnoreCase("word");
+            } else {
+                assert token.getType().equalsIgnoreCase("synonym");
+            }
+        }
     }
 
     @Test
