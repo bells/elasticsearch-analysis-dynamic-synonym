@@ -92,7 +92,7 @@ public class RemoteSynonymFile implements SynonymFile {
             parser = getSynonymParser(rulesReader, format, expand, analyzer);
             return parser.build();
         } catch (Exception e) {
-            logger.error("reload remote synonym {} error!", e, location);
+            logger.error("reload remote synonym {} error!", location, e);
             throw new IllegalArgumentException(
                     "could not reload remote synonyms file to build synonyms",
                     e);
@@ -112,7 +112,7 @@ public class RemoteSynonymFile implements SynonymFile {
             try {
                 return httpclient.execute(httpUriRequest);
             } catch (IOException e) {
-                logger.error("Unable to execute HTTP request: {}", e);
+                logger.error("Unable to execute HTTP request.", e);
             }
             return null;
         });
@@ -122,7 +122,7 @@ public class RemoteSynonymFile implements SynonymFile {
      * Download custom terms from a remote server
      */
     public Reader getReader() {
-        Reader reader = null;
+        Reader reader;
         RequestConfig rc = RequestConfig.custom()
                 .setConnectionRequestTimeout(10 * 1000)
                 .setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
@@ -145,7 +145,7 @@ public class RemoteSynonymFile implements SynonymFile {
 
                 br = new BufferedReader(new InputStreamReader(response
                         .getEntity().getContent(), charset));
-                StringBuffer sb = new StringBuffer();
+                StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = br.readLine()) != null) {
                     logger.info("reload remote synonym: {}", line);
@@ -153,11 +153,13 @@ public class RemoteSynonymFile implements SynonymFile {
                             .append(System.getProperty("line.separator"));
                 }
                 reader = new StringReader(sb.toString());
-            }
+            } else reader = new StringReader("");
         } catch (Exception e) {
-            logger.error("get remote synonym reader {} error!", e, location);
-            throw new IllegalArgumentException(
-                    "Exception while reading remote synonyms file", e);
+            logger.error("get remote synonym reader {} error!", location, e);
+//            throw new IllegalArgumentException(
+//                    "Exception while reading remote synonyms file", e);
+            // Fix #54 Returns blank if synonym file has be deleted.
+            reader = new StringReader("");
         } finally {
             try {
                 if (br != null) {

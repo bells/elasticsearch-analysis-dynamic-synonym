@@ -16,7 +16,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 
 /**
@@ -51,19 +54,19 @@ public class LocalSynonymFile implements SynonymFile {
         this.env = env;
         this.location = location;
 
-        this.synonymFilePath = env.configFile().resolve(location);
+        this.synonymFilePath = deepSearch();
         isNeedReloadSynonymMap();
     }
 
     @Override
     public SynonymMap reloadSynonymMap() {
         try {
-            logger.info("start reload local synonym from {}.", location);
+            logger.info("start reload local synonym from {}.", synonymFilePath);
             Reader rulesReader = getReader();
             SynonymMap.Builder parser = RemoteSynonymFile.getSynonymParser(rulesReader, format, expand, analyzer);
             return parser.build();
         } catch (Exception e) {
-            logger.error("reload local synonym {} error!", e, location);
+            logger.error("reload local synonym {} error!", synonymFilePath, e);
             throw new IllegalArgumentException(
                     "could not reload local synonyms file to build synonyms", e);
         }
@@ -71,9 +74,17 @@ public class LocalSynonymFile implements SynonymFile {
     }
 
     public Reader getReader() {
+        /*
+        Just deleted when reading the file, Returns empty synonym
+          keyword if file not exists.
+        A small probability event.
+         */
+        if (!Files.exists(synonymFilePath)) {
+            return new StringReader("");
+        }
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
                 synonymFilePath.toUri().toURL().openStream(), Charsets.UTF_8))) {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) {
                 logger.info("reload local synonym: {}", line);
@@ -81,15 +92,24 @@ public class LocalSynonymFile implements SynonymFile {
             }
             return new StringReader(sb.toString());
         } catch (IOException e) {
-            logger.error("get local synonym reader {} error!", e, location);
-            throw new IllegalArgumentException(
-                    "IOException while reading local synonyms file", e);
+            logger.error("get local synonym reader {} error!", location, e);
+//            throw new IllegalArgumentException(
+//                    "IOException while reading local synonyms file", e);
+            // Fix #54 Returns blank if synonym file has be deleted.
+            return new StringReader("");
         }
     }
 
     @Override
     public boolean isNeedReloadSynonymMap() {
         try {
+            /*
+            If the file does not exist, it will be scanned every time
+              until the file is restored.
+             */
+            if (!Files.exists(synonymFilePath) && !Files.exists(synonymFilePath = deepSearch())) {
+                return false;
+            }
             File synonymFile = synonymFilePath.toFile();
             if (synonymFile.exists()
                     && lastModified < synonymFile.lastModified()) {
@@ -97,11 +117,39 @@ public class LocalSynonymFile implements SynonymFile {
                 return true;
             }
         } catch (Exception e) {
-            logger.error("check need reload local synonym {} error!", e,
-                    location);
+            logger.error("check need reload local synonym {} error!", location, e);
         }
 
         return false;
     }
 
+    /**
+     * Deep search synonym file.
+     * Step 1. Query the 'sysnonym_path' parameter as an absolute path
+     * Step 2. Query the es config path
+     * Step 3. Query in current relative path
+     * <p>
+     * Override this method to expend search path
+     *
+     * @return the synonym path.
+     */
+    protected Path deepSearch() {
+        Path path;
+        // Load setting config as absolute path
+        if (Files.exists(Paths.get(location))) {
+            path = Paths.get(location);
+            // Load from setting config path
+        } else if (Files.exists(env.configFile().resolve(location))) {
+            path = env.configFile().resolve(location);
+            // Load from current relative path
+        } else {
+            URL url = getClass().getClassLoader().getResource(location);
+            if (url != null) {
+                path = Paths.get(url.getFile());
+            } else {
+                path = env.configFile().resolve(location);
+            }
+        }
+        return path;
+    }
 }
