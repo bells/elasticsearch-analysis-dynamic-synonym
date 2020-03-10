@@ -85,7 +85,7 @@ public class RemoteSynonymFile implements SynonymFile {
     public SynonymMap reloadSynonymMap() {
         Reader rulesReader = null;
         try {
-            logger.info("start reload remote synonym from {}.", location);
+            logger.debug("start reload remote synonym from {}.", location);
             rulesReader = getReader();
             SynonymMap.Builder parser;
 
@@ -148,7 +148,7 @@ public class RemoteSynonymFile implements SynonymFile {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = br.readLine()) != null) {
-                    logger.info("reload remote synonym: {}", line);
+                    logger.debug("reload remote synonym: {}", line);
                     sb.append(line)
                             .append(System.getProperty("line.separator"));
                 }
