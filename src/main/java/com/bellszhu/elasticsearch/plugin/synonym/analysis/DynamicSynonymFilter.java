@@ -197,7 +197,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
         BytesRef pendingOutput = fst.outputs.getNoOutput();
         fst.getFirstArc(scratchArc);
 
-        assert scratchArc.output == fst.outputs.getNoOutput();
+        assert scratchArc.output() == fst.outputs.getNoOutput();
 
         int tokenCount = 0;
 
@@ -263,7 +263,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
 
                 // Accum the output
                 pendingOutput = fst.outputs.add(pendingOutput,
-                        scratchArc.output);
+                        scratchArc.output());
                 bufUpto += Character.charCount(codePoint);
             }
 
@@ -271,7 +271,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
             // state:
             if (scratchArc.isFinal()) {
                 matchOutput = fst.outputs.add(pendingOutput,
-                        scratchArc.nextFinalOutput);
+                        scratchArc.nextFinalOutput());
                 matchInputLength = tokenCount;
                 matchEndOffset = inputEndOffset;
             }
@@ -288,7 +288,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
                 // More matching is possible -- accum the output (if
                 // any) of the WORD_SEP arc:
                 pendingOutput = fst.outputs.add(pendingOutput,
-                        scratchArc.output);
+                        scratchArc.output());
                 if (nextRead == nextWrite) {
                     capture();
                 }
