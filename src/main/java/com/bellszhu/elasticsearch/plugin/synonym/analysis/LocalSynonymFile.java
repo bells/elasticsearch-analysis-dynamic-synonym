@@ -33,6 +33,8 @@ public class LocalSynonymFile implements SynonymFile {
 
     private boolean expand;
 
+    private boolean lenient;
+
     private Analyzer analyzer;
 
     private Environment env;
@@ -46,10 +48,11 @@ public class LocalSynonymFile implements SynonymFile {
 
     private long lastModified;
 
-    LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand,
+    LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand, boolean lenient,
                      String format, String location) {
         this.analyzer = analyzer;
         this.expand = expand;
+        this.lenient = lenient;
         this.format = format;
         this.env = env;
         this.location = location;
@@ -63,7 +66,7 @@ public class LocalSynonymFile implements SynonymFile {
         try {
             logger.info("start reload local synonym from {}.", synonymFilePath);
             Reader rulesReader = getReader();
-            SynonymMap.Builder parser = RemoteSynonymFile.getSynonymParser(rulesReader, format, expand, analyzer);
+            SynonymMap.Builder parser = RemoteSynonymFile.getSynonymParser(rulesReader, format, expand, lenient, analyzer);
             return parser.build();
         } catch (Exception e) {
             logger.error("reload local synonym {} error!", synonymFilePath, e);

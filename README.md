@@ -59,6 +59,8 @@ master| 7.x -> master
 
 `expand`: Expand, default: `true`, *optional* 
 
+`lenient`: Lenient on exception thrown when importing a synonym, default: `false`, *optional* 
+
 `format`: Synonym file format, default: `''`, *optional*. For WordNet structure this can be set to `'wordnet'`
 
 

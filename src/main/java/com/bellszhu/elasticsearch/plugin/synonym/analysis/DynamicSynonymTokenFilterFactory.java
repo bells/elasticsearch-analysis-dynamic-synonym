@@ -162,10 +162,10 @@ public class DynamicSynonymTokenFilterFactory extends
         try {
             SynonymFile synonymFile;
             if (location.startsWith("http://") || location.startsWith("https://")) {
-                synonymFile = new RemoteSynonymFile(environment, analyzer, expand, format,
+                synonymFile = new RemoteSynonymFile(environment, analyzer, expand, lenient,  format,
                         location);
             } else {
-                synonymFile = new LocalSynonymFile(environment, analyzer, expand, format,
+                synonymFile = new LocalSynonymFile(environment, analyzer, expand, lenient, format,
                         location);
             }
             if (scheduledFuture == null) {
