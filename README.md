@@ -43,7 +43,11 @@ master| 7.x -> master
 	            "local_synonym" : {
 	                "type" : "dynamic_synonym",
 	                "synonyms_path" : "synonym.txt"
-	            }
+	            },
+                "synonym_graph" : {
+                    "type" : "dynamic_synonym_graph",
+                    "synonyms_path" : "http://host:port/synonym.txt"
+                }
 	        }
 	    }
 	}
