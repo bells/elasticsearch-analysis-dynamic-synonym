@@ -44,16 +44,18 @@ master| 7.x -> master
 	                "type" : "dynamic_synonym",
 	                "synonyms_path" : "synonym.txt"
 	            },
-                "synonym_graph" : {
-                    "type" : "dynamic_synonym_graph",
-                    "synonyms_path" : "http://host:port/synonym.txt"
-                }
+                    "synonym_graph" : {
+                        "type" : "dynamic_synonym_graph",
+                        "synonyms_path" : "http://host:port/synonym.txt"
+                    }
 	        }
 	    }
 	}
 }
 ```
 ### Configuration
+
+`type`: `dynamic_synonym` or `dynamic_synonym_graph`, *mandatory*
 
 `synonyms_path`: A file path relative to the Elastic config file or an URL, *mandatory*
 
