@@ -26,31 +26,31 @@ master| 7.x -> master
 
 ```json
 {
-	"index" : {
-	    "analysis" : {
-	        "analyzer" : {
-	            "synonym" : {
-	                "tokenizer" : "whitespace",
-	                "filter" : ["remote_synonym"]
- 	           }
-	        },
-	        "filter" : {
-	            "remote_synonym" : {
-	                "type" : "dynamic_synonym",
-	                "synonyms_path" : "http://host:port/synonym.txt",
-	                "interval": 30
-	            },
-	            "local_synonym" : {
-	                "type" : "dynamic_synonym",
-	                "synonyms_path" : "synonym.txt"
-	            },
-                    "synonym_graph" : {
-                        "type" : "dynamic_synonym_graph",
-                        "synonyms_path" : "http://host:port/synonym.txt"
-                    }
-	        }
-	    }
-	}
+    "index" : {
+        "analysis" : {
+            "analyzer" : {
+                "synonym" : {
+                    "tokenizer" : "whitespace",
+                    "filter" : ["remote_synonym"]
+                }
+            },
+            "filter" : {
+                "remote_synonym" : {
+                    "type" : "dynamic_synonym",
+                    "synonyms_path" : "http://host:port/synonym.txt",
+                    "interval": 30
+                },
+                "local_synonym" : {
+                    "type" : "dynamic_synonym",
+                    "synonyms_path" : "synonym.txt"
+                },
+                "synonym_graph" : {
+                    "type" : "dynamic_synonym_graph",
+                    "synonyms_path" : "http://host:port/synonym.txt"
+                }
+            }
+        }
+    }
 }
 ```
 ### Configuration
