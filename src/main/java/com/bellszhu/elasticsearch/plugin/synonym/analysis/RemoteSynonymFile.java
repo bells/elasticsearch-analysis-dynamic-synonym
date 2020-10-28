@@ -68,7 +68,9 @@ public class RemoteSynonymFile implements SynonymFile {
         isNeedReloadSynonymMap();
     }
 
-    static SynonymMap.Builder getSynonymParser(Reader rulesReader, String format, boolean expand, boolean lenient, Analyzer analyzer) throws IOException, ParseException {
+    static SynonymMap.Builder getSynonymParser(
+            Reader rulesReader, String format, boolean expand, boolean lenient, Analyzer analyzer
+    ) throws IOException, ParseException {
         SynonymMap.Builder parser;
         if ("wordnet".equalsIgnoreCase(format)) {
             parser = new ESWordnetSynonymParser(true, expand, lenient, analyzer);

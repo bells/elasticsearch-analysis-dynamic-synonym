@@ -36,23 +36,24 @@ public class DynamicSynonymTokenFilterFactory extends
 
     private static final DeprecationLogger DEPRECATION_LOGGER
             = new DeprecationLogger(LogManager.getLogger(DynamicSynonymTokenFilterFactory.class));
+    private static Logger logger = LogManager.getLogger("dynamic-synonym");
 
     /**
      * Static id generator
      */
     private static final AtomicInteger id = new AtomicInteger(1);
-    private static Logger logger = LogManager.getLogger("dynamic-synonym");
     private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
         Thread thread = new Thread(r);
         thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
         return thread;
     });
+    private volatile ScheduledFuture<?> scheduledFuture;
+
     private final String location;
     private final boolean expand;
     private final boolean lenient;
     private final String format;
     private final int interval;
-    private volatile ScheduledFuture<?> scheduledFuture;
     protected SynonymMap synonymMap;
     protected Map<AbsSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<>();
     protected final Environment environment;
@@ -71,13 +72,13 @@ public class DynamicSynonymTokenFilterFactory extends
             throw new IllegalArgumentException(
                     "dynamic synonym requires `synonyms_path` to be configured");
         }
-
-        this.interval = settings.getAsInt("interval", 60);
         if (settings.get("ignore_case") != null) {
             DEPRECATION_LOGGER.deprecated(
                 "The ignore_case option on the synonym_graph filter is deprecated. " +
                     "Instead, insert a lowercase filter in the filter chain before the synonym_graph filter.");
         }
+
+        this.interval = settings.getAsInt("interval", 60);
         this.expand = settings.getAsBoolean("expand", true);
         this.lenient = settings.getAsBoolean("lenient", false);
         this.format = settings.get("format", "");
@@ -94,14 +95,15 @@ public class DynamicSynonymTokenFilterFactory extends
 
     @Override
     public TokenStream create(TokenStream tokenStream) {
-        throw new IllegalStateException("Call getChainAwareTokenFilterFactory to specialize this factory for an analysis chain first");
+        throw new IllegalStateException(
+                "Call getChainAwareTokenFilterFactory to specialize this factory for an analysis chain first");
     }
 
     public TokenFilterFactory getChainAwareTokenFilterFactory(
-        TokenizerFactory tokenizer,
-        List<CharFilterFactory> charFilters,
-        List<TokenFilterFactory> previousTokenFilters,
-        Function<String, TokenFilterFactory> allFilters
+            TokenizerFactory tokenizer,
+            List<CharFilterFactory> charFilters,
+            List<TokenFilterFactory> previousTokenFilters,
+            Function<String, TokenFilterFactory> allFilters
     ) {
         final Analyzer analyzer = buildSynonymAnalyzer(tokenizer, charFilters, previousTokenFilters, allFilters);
         synonymMap = buildSynonyms(analyzer);
@@ -140,21 +142,23 @@ public class DynamicSynonymTokenFilterFactory extends
     }
 
     Analyzer buildSynonymAnalyzer(
-        TokenizerFactory tokenizer,
-        List<CharFilterFactory> charFilters,
-        List<TokenFilterFactory> tokenFilters,
-        Function<String, TokenFilterFactory> allFilters
+            TokenizerFactory tokenizer,
+            List<CharFilterFactory> charFilters,
+            List<TokenFilterFactory> tokenFilters,
+            Function<String, TokenFilterFactory> allFilters
     ) {
-        return new CustomAnalyzer(tokenizer, charFilters.toArray(new CharFilterFactory[0]),
-            tokenFilters.stream()
-                .map(TokenFilterFactory::getSynonymFilter)
-                .toArray(TokenFilterFactory[]::new));
+        return new CustomAnalyzer(
+                tokenizer,
+                charFilters.toArray(new CharFilterFactory[0]),
+                tokenFilters.stream().map(TokenFilterFactory::getSynonymFilter).toArray(TokenFilterFactory[]::new)
+        );
     }
 
     SynonymMap buildSynonyms(Analyzer analyzer) {
         try {
             return getSynonymFile(analyzer).reloadSynonymMap();
         } catch (Exception e) {
+            logger.error("failed to build synonyms", e);
             throw new IllegalArgumentException("failed to build synonyms", e);
         }
     }
@@ -175,6 +179,7 @@ public class DynamicSynonymTokenFilterFactory extends
             }
             return synonymFile;
         } catch (Exception e) {
+            logger.error("failed to get synonyms: " + location, e);
             throw new IllegalArgumentException("failed to get synonyms : " + location, e);
         }
     }
@@ -191,8 +196,7 @@ public class DynamicSynonymTokenFilterFactory extends
         public void run() {
             if (synonymFile.isNeedReloadSynonymMap()) {
                 synonymMap = synonymFile.reloadSynonymMap();
-                for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters
-                        .keySet()) {
+                for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
                     dynamicSynonymFilter.update(synonymMap);
                     logger.info("success reload synonym");
                 }
