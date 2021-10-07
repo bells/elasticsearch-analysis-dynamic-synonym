@@ -37,13 +37,13 @@ public class DynamicSynonymTokenFilterFactory extends
 
     private static final DeprecationLogger DEPRECATION_LOGGER = DeprecationLogger.getLogger(
             DynamicSynonymTokenFilterFactory.class);
-    private static Logger logger = LogManager.getLogger("dynamic-synonym");
+    private static final Logger logger = LogManager.getLogger("dynamic-synonym");
 
     /**
      * Static id generator
      */
     private static final AtomicInteger id = new AtomicInteger(1);
-    private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
+    private static final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
         Thread thread = new Thread(r);
         thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
         return thread;
