@@ -17,6 +17,11 @@
 
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.core.FlattenGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymFilter;
@@ -31,11 +36,6 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.lucene.util.RollingBuffer;
 import org.apache.lucene.util.fst.FST;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 
 // TODO: maybe we should resolve token -> wordID then run
 // FST on wordIDs, for better perf?

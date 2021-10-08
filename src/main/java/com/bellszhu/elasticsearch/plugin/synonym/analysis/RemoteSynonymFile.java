@@ -3,6 +3,15 @@
  */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.text.ParseException;
+
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -17,11 +26,6 @@ import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.elasticsearch.analysis.common.ESSolrSynonymParser;
 import org.elasticsearch.analysis.common.ESWordnetSynonymParser;
 import org.elasticsearch.env.Environment;
-
-import java.io.*;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.text.ParseException;
 
 /**
  * @author bellszhu

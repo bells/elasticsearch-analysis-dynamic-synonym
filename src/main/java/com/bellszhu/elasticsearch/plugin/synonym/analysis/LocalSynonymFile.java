@@ -3,13 +3,6 @@
  */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import org.apache.commons.codec.Charsets;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.env.Environment;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +11,13 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import org.apache.commons.codec.Charsets;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.synonym.SynonymMap;
+import org.elasticsearch.env.Environment;
 
 
 /**

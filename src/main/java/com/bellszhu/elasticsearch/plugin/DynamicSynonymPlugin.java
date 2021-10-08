@@ -3,17 +3,18 @@
  */
 package com.bellszhu.elasticsearch.plugin;
 
-import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymGraphTokenFilterFactory;
-import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
+import static org.elasticsearch.plugins.AnalysisPlugin.requiresAnalysisSettings;
+
+import java.util.HashMap;
+import java.util.Map;
+
 import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.indices.analysis.AnalysisModule;
 import org.elasticsearch.plugins.AnalysisPlugin;
 import org.elasticsearch.plugins.Plugin;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.elasticsearch.plugins.AnalysisPlugin.requiresAnalysisSettings;
+import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymGraphTokenFilterFactory;
+import com.bellszhu.elasticsearch.plugin.synonym.analysis.DynamicSynonymTokenFilterFactory;
 
 
 /**
