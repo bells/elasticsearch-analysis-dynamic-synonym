@@ -25,7 +25,7 @@ import org.elasticsearch.env.Environment;
  */
 public class LocalSynonymFile implements SynonymFile {
 
-    private static Logger logger = LogManager.getLogger("dynamic-synonym");
+    private static final Logger logger = LogManager.getLogger("dynamic-synonym");
 
     private String format;
 

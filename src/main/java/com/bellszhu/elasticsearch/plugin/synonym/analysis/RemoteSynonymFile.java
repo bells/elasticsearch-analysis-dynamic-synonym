@@ -35,7 +35,7 @@ public class RemoteSynonymFile implements SynonymFile {
     private static final String LAST_MODIFIED_HEADER = "Last-Modified";
     private static final String ETAG_HEADER = "ETag";
 
-    private static Logger logger = LogManager.getLogger("dynamic-synonym");
+    private static final Logger logger = LogManager.getLogger("dynamic-synonym");
 
     private CloseableHttpClient httpclient;
 
