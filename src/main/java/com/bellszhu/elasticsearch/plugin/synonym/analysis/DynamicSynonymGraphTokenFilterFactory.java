@@ -1,5 +1,9 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.function.Function;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.elasticsearch.common.settings.Settings;
@@ -9,10 +13,6 @@ import org.elasticsearch.index.analysis.AnalysisMode;
 import org.elasticsearch.index.analysis.CharFilterFactory;
 import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.index.analysis.TokenizerFactory;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.function.Function;
 
 public class DynamicSynonymGraphTokenFilterFactory extends DynamicSynonymTokenFilterFactory {
 
