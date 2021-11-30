@@ -3,6 +3,15 @@
  */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.text.ParseException;
+
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -13,19 +22,10 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
+import org.elasticsearch.analysis.common.ESSolrSynonymParser;
+import org.elasticsearch.analysis.common.ESWordnetSynonymParser;
 import org.elasticsearch.env.Environment;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.text.ParseException;
 
 /**
  * @author bellszhu
@@ -35,13 +35,15 @@ public class RemoteSynonymFile implements SynonymFile {
     private static final String LAST_MODIFIED_HEADER = "Last-Modified";
     private static final String ETAG_HEADER = "ETag";
 
-    private static Logger logger = LogManager.getLogger("dynamic-synonym");
+    private static final Logger logger = LogManager.getLogger("dynamic-synonym");
 
     private CloseableHttpClient httpclient;
 
     private String format;
 
     private boolean expand;
+
+    private boolean lenient;
 
     private Analyzer analyzer;
 
@@ -57,9 +59,10 @@ public class RemoteSynonymFile implements SynonymFile {
     private String eTags;
 
     RemoteSynonymFile(Environment env, Analyzer analyzer,
-                      boolean expand, String format, String location) {
+                      boolean expand, boolean lenient, String format, String location) {
         this.analyzer = analyzer;
         this.expand = expand;
+        this.lenient = lenient;
         this.format = format;
         this.env = env;
         this.location = location;
@@ -69,14 +72,16 @@ public class RemoteSynonymFile implements SynonymFile {
         isNeedReloadSynonymMap();
     }
 
-    static SynonymMap.Builder getSynonymParser(Reader rulesReader, String format, boolean expand, Analyzer analyzer) throws IOException, ParseException {
+    static SynonymMap.Builder getSynonymParser(
+            Reader rulesReader, String format, boolean expand, boolean lenient, Analyzer analyzer
+    ) throws IOException, ParseException {
         SynonymMap.Builder parser;
         if ("wordnet".equalsIgnoreCase(format)) {
-            parser = new WordnetSynonymParser(true, expand, analyzer);
-            ((WordnetSynonymParser) parser).parse(rulesReader);
+            parser = new ESWordnetSynonymParser(true, expand, lenient, analyzer);
+            ((ESWordnetSynonymParser) parser).parse(rulesReader);
         } else {
-            parser = new SolrSynonymParser(true, expand, analyzer);
-            ((SolrSynonymParser) parser).parse(rulesReader);
+            parser = new ESSolrSynonymParser(true, expand, lenient, analyzer);
+            ((ESSolrSynonymParser) parser).parse(rulesReader);
         }
         return parser;
     }
@@ -89,7 +94,7 @@ public class RemoteSynonymFile implements SynonymFile {
             rulesReader = getReader();
             SynonymMap.Builder parser;
 
-            parser = getSynonymParser(rulesReader, format, expand, analyzer);
+            parser = getSynonymParser(rulesReader, format, expand, lenient, analyzer);
             return parser.build();
         } catch (Exception e) {
             logger.error("reload remote synonym {} error!", location, e);
@@ -211,7 +216,6 @@ public class RemoteSynonymFile implements SynonymFile {
                 logger.info("remote synonym {} return bad code {}", location,
                         response.getStatusLine().getStatusCode());
             }
-
         } finally {
             try {
                 if (response != null) {

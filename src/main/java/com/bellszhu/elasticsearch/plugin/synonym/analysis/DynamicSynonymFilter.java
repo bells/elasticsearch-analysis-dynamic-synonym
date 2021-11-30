@@ -17,16 +17,24 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
  * limitations under the License.
  */
 
-import org.apache.lucene.analysis.TokenFilter;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.analysis.tokenattributes.*;
-import org.apache.lucene.store.ByteArrayDataInput;
-import org.apache.lucene.util.*;
-import org.apache.lucene.util.fst.FST;
-
 import java.io.IOException;
 import java.util.Arrays;
+
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.synonym.SynonymMap;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
+import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
+import org.apache.lucene.analysis.tokenattributes.PositionLengthAttribute;
+import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.store.ByteArrayDataInput;
+import org.apache.lucene.util.ArrayUtil;
+import org.apache.lucene.util.AttributeSource;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.CharsRef;
+import org.apache.lucene.util.CharsRefBuilder;
+import org.apache.lucene.util.RamUsageEstimator;
+import org.apache.lucene.util.fst.FST;
 
 /**
  * Matches single or multi word synonyms in a token stream. This token stream
@@ -98,7 +106,7 @@ import java.util.Arrays;
 // Another possible solution is described at
 // http://www.cis.uni-muenchen.de/people/Schulz/Pub/dictle5.ps
 
-public final class DynamicSynonymFilter extends TokenFilter {
+public final class DynamicSynonymFilter extends AbsSynonymFilter {
 
     private static final String TYPE_SYNONYM = "SYNONYM";
     private final boolean ignoreCase;
@@ -197,7 +205,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
         BytesRef pendingOutput = fst.outputs.getNoOutput();
         fst.getFirstArc(scratchArc);
 
-        assert scratchArc.output == fst.outputs.getNoOutput();
+        assert scratchArc.output() == fst.outputs.getNoOutput();
 
         int tokenCount = 0;
 
@@ -263,7 +271,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
 
                 // Accum the output
                 pendingOutput = fst.outputs.add(pendingOutput,
-                        scratchArc.output);
+                        scratchArc.output());
                 bufUpto += Character.charCount(codePoint);
             }
 
@@ -271,7 +279,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
             // state:
             if (scratchArc.isFinal()) {
                 matchOutput = fst.outputs.add(pendingOutput,
-                        scratchArc.nextFinalOutput);
+                        scratchArc.nextFinalOutput());
                 matchInputLength = tokenCount;
                 matchEndOffset = inputEndOffset;
             }
@@ -288,7 +296,7 @@ public final class DynamicSynonymFilter extends TokenFilter {
                 // More matching is possible -- accum the output (if
                 // any) of the WORD_SEP arc:
                 pendingOutput = fst.outputs.add(pendingOutput,
-                        scratchArc.output);
+                        scratchArc.output());
                 if (nextRead == nextWrite) {
                     capture();
                 }

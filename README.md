@@ -26,30 +26,36 @@ master| 7.x -> master
 
 ```json
 {
-	"index" : {
-	    "analysis" : {
-	        "analyzer" : {
-	            "synonym" : {
-	                "tokenizer" : "whitespace",
-	                "filter" : ["remote_synonym"]
- 	           }
-	        },
-	        "filter" : {
-	            "remote_synonym" : {
-	                "type" : "dynamic_synonym",
-	                "synonyms_path" : "http://host:port/synonym.txt",
-	                "interval": 30
-	            },
-	            "local_synonym" : {
-	                "type" : "dynamic_synonym",
-	                "synonyms_path" : "synonym.txt"
-	            }
-	        }
-	    }
-	}
+    "index" : {
+        "analysis" : {
+            "analyzer" : {
+                "synonym" : {
+                    "tokenizer" : "whitespace",
+                    "filter" : ["remote_synonym"]
+                }
+            },
+            "filter" : {
+                "remote_synonym" : {
+                    "type" : "dynamic_synonym",
+                    "synonyms_path" : "http://host:port/synonym.txt",
+                    "interval": 30
+                },
+                "local_synonym" : {
+                    "type" : "dynamic_synonym",
+                    "synonyms_path" : "synonym.txt"
+                },
+                "synonym_graph" : {
+                    "type" : "dynamic_synonym_graph",
+                    "synonyms_path" : "http://host:port/synonym.txt"
+                }
+            }
+        }
+    }
 }
 ```
 ### Configuration
+
+`type`: `dynamic_synonym` or `dynamic_synonym_graph`, *mandatory*
 
 `synonyms_path`: A file path relative to the Elastic config file or an URL, *mandatory*
 
@@ -58,6 +64,8 @@ master| 7.x -> master
 `ignore_case`: Ignore case in synonyms file, default: `false`, *optional*
 
 `expand`: Expand, default: `true`, *optional* 
+
+`lenient`: Lenient on exception thrown when importing a synonym, default: `false`, *optional* 
 
 `format`: Synonym file format, default: `''`, *optional*. For WordNet structure this can be set to `'wordnet'`
 

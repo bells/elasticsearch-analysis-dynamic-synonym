@@ -56,13 +56,13 @@ public class DynamicSynonymPluginTest {
         runner.clean();
     }
 
-    private void createIndexWithLocalSynonym(String indexName, String localPath) {
+    private void createIndexWithLocalSynonym(String indexName, String synonymType, String localPath) {
         final String indexSettings = "{\n" +
             "  \"index\":{\n" +
             "    \"analysis\":{\n" +
             "      \"filter\":{\n" +
             "        \"local_synonym\": {\n" +
-            "            \"type\": \"dynamic_synonym\",\n" +
+            "            \"type\": \"" + synonymType + "\",\n" +
             "            \"synonyms_path\": \"" + localPath + "\",\n" +
             "            \"interval\": \"10\"\n" +
             "        }"+
@@ -168,7 +168,31 @@ public class DynamicSynonymPluginTest {
         String index = "test_local_absolute";
         String absolutePath = "target/test-classes/synonym.txt";
         // create an index
-        createIndexWithLocalSynonym(index, absolutePath);
+        createIndexWithLocalSynonym(index, "dynamic_synonym", absolutePath);
+
+        String text = "肯德基";
+        List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
+        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
+            System.out.println(token.getTerm() + " => " + token.getType());
+        }
+
+        assert analyzeTokens.size() == 3;
+        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
+            String key = token.getTerm();
+            if (text.equalsIgnoreCase(key)) {
+                assert token.getType().equalsIgnoreCase("word");
+            } else {
+                assert token.getType().equalsIgnoreCase("synonym");
+            }
+        }
+    }
+
+    @Test
+    public void testGraphLocalAbsolute() {
+        String index = "test_local_absolute";
+        String absolutePath = "target/test-classes/synonym.txt";
+        // create an index
+        createIndexWithLocalSynonym(index, "dynamic_synonym_graph", absolutePath);
 
         String text = "肯德基";
         List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
@@ -192,7 +216,7 @@ public class DynamicSynonymPluginTest {
         String index = "test_local_relative";
         String absolutePath = "synonym.txt";
         // create an index
-        createIndexWithLocalSynonym(index, absolutePath);
+        createIndexWithLocalSynonym(index, "dynamic_synonym", absolutePath);
 
         String text = "kfc";
         List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
