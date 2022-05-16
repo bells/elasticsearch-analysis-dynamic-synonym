@@ -202,7 +202,7 @@ public class DynamicSynonymTokenFilterFactory extends
                 synonymMap = synonymFile.reloadSynonymMap();
                 for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
                     dynamicSynonymFilter.update(synonymMap);
-                    logger.info("success reload synonym");
+                    logger.debug("success reload synonym");
                 }
             }
         }
