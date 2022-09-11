@@ -90,7 +90,7 @@ public class RemoteSynonymFile implements SynonymFile {
     public SynonymMap reloadSynonymMap() {
         Reader rulesReader = null;
         try {
-            logger.info("start reload remote synonym from {}.", location);
+            logger.debug("start reload remote synonym from {}.", location);
             rulesReader = getReader();
             SynonymMap.Builder parser;
 
@@ -132,7 +132,7 @@ public class RemoteSynonymFile implements SynonymFile {
                 .setConnectionRequestTimeout(10 * 1000)
                 .setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
                 .build();
-        CloseableHttpResponse response;
+        CloseableHttpResponse response = null;
         BufferedReader br = null;
         HttpGet get = new HttpGet(location);
         get.setConfig(rc);
@@ -153,7 +153,7 @@ public class RemoteSynonymFile implements SynonymFile {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = br.readLine()) != null) {
-                    logger.info("reload remote synonym: {}", line);
+                    logger.debug("reload remote synonym: {}", line);
                     sb.append(line)
                             .append(System.getProperty("line.separator"));
                 }
@@ -172,6 +172,13 @@ public class RemoteSynonymFile implements SynonymFile {
                 }
             } catch (IOException e) {
                 logger.error("failed to close bufferedReader", e);
+            }
+            try {
+                if (response != null) {
+                    response.close();
+                }
+            } catch (IOException e) {
+                logger.error("failed to close http response", e);
             }
         }
         return reader;
