@@ -186,6 +186,7 @@ public class RemoteSynonymFile implements SynonymFile {
 
     @Override
     public boolean isNeedReloadSynonymMap() {
+        logger.info("==== isNeedReloadSynonymMap ====");
         RequestConfig rc = RequestConfig.custom()
                 .setConnectionRequestTimeout(10 * 1000)
                 .setConnectTimeout(10 * 1000).setSocketTimeout(15 * 1000)
