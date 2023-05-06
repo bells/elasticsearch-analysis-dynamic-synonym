@@ -225,7 +225,7 @@ public class RemoteSynonymFile implements SynonymFile {
                         response.getStatusLine().getStatusCode());
             }
         } catch (Exception e){
-            return true;
+            return false;
         } finally {
             try {
                 if (response != null) {
