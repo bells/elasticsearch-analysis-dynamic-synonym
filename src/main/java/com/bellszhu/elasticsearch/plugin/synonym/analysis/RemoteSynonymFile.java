@@ -164,7 +164,7 @@ public class RemoteSynonymFile implements SynonymFile {
 //            throw new IllegalArgumentException(
 //                    "Exception while reading remote synonyms file", e);
             // Fix #54 Returns blank if synonym file has be deleted.
-            reader = new StringReader("");
+            reader = new StringReader("1=>1");
         } finally {
             try {
                 if (br != null) {
@@ -224,6 +224,8 @@ public class RemoteSynonymFile implements SynonymFile {
                 logger.info("remote synonym {} return bad code {}", location,
                         response.getStatusLine().getStatusCode());
             }
+        } catch (Exception e){
+            return true;
         } finally {
             try {
                 if (response != null) {

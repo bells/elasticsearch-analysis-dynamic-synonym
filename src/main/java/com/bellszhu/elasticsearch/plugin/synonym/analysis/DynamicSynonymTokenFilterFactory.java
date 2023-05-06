@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
+import org.apache.lucene.util.fst.FST;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
@@ -198,6 +199,7 @@ public class DynamicSynonymTokenFilterFactory extends
                     }
                 }
             } catch (Exception e) {
+                logger.info("Monitor error", e);
 //                e.printStackTrace();
                 logger.error(e);
             }
