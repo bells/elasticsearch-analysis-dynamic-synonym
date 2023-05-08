@@ -17,8 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.common.logging.DeprecationCategory;
-import org.elasticsearch.common.logging.DeprecationLogger;
+import org.apache.lucene.util.fst.FST;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
@@ -190,12 +189,19 @@ public class DynamicSynonymTokenFilterFactory extends
 
         @Override
         public void run() {
-            if (synonymFile.isNeedReloadSynonymMap()) {
-                synonymMap = synonymFile.reloadSynonymMap();
-                for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
-                    dynamicSynonymFilter.update(synonymMap);
-                    logger.debug("success reload synonym");
+            try {
+                logger.info("===== Monitor =======");
+                if (synonymFile.isNeedReloadSynonymMap()) {
+                    synonymMap = synonymFile.reloadSynonymMap();
+                    for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
+                        dynamicSynonymFilter.update(synonymMap);
+                        logger.debug("success reload synonym");
+                    }
                 }
+            } catch (Exception e) {
+                logger.info("Monitor error", e);
+//                e.printStackTrace();
+                logger.error(e);
             }
         }
     }
