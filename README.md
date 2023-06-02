@@ -4,17 +4,18 @@ The dynamic synonym plugin adds a synonym token filter that reloads the synonym 
 
 ## Version
 
-dynamic synonym version | ES version
------------|-----------
-master| 7.x -> master
-6.1.4 |	6.1.4
-5.2.0 |	5.2.0
-5.1.1 |	5.1.1
-2.3.0 | 2.3.0
-2.2.0 | 2.2.0
-2.1.0 | 2.1.0
-2.0.0 | 2.0.0 
-1.6.0 | 1.6.X
+| dynamic synonym version | ES version    |
+|-------------------------|---------------|
+| master                  | 8.x -> master |
+| 7.4.2                   | 7.4.2         |
+| 6.1.4                   | 6.1.4         |
+| 5.2.0                   | 5.2.0         |
+| 5.1.1                   | 5.1.1         |
+| 2.3.0                   | 2.3.0         |
+| 2.2.0                   | 2.2.0         |
+| 2.1.0                   | 2.1.0         |
+| 2.0.0                   | 2.0.0         |
+| 1.6.0                   | 1.6.X         |
 
 ## Installation
 
