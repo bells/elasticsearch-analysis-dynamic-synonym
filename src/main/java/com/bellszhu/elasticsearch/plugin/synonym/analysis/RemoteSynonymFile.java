@@ -8,17 +8,17 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.text.ParseException;
+import java.util.concurrent.TimeUnit;
 
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpHead;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.message.StatusLine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -67,7 +67,7 @@ public class RemoteSynonymFile implements SynonymFile {
         this.env = env;
         this.location = location;
 
-        this.httpclient = AccessController.doPrivileged((PrivilegedAction<CloseableHttpClient>) HttpClients::createDefault);
+        this.httpclient = HttpClients.createDefault();
 
         isNeedReloadSynonymMap();
     }
@@ -113,14 +113,12 @@ public class RemoteSynonymFile implements SynonymFile {
     }
 
     private CloseableHttpResponse executeHttpRequest(HttpUriRequest httpUriRequest) {
-        return AccessController.doPrivileged((PrivilegedAction<CloseableHttpResponse>) () -> {
-            try {
-                return httpclient.execute(httpUriRequest);
-            } catch (IOException e) {
-                logger.error("Unable to execute HTTP request.", e);
-            }
-            return null;
-        });
+        try {
+            return httpclient.execute(httpUriRequest);
+        } catch (IOException e) {
+            logger.error("Unable to execute HTTP request.", e);
+        }
+        return null;
     }
 
     /**
@@ -129,8 +127,8 @@ public class RemoteSynonymFile implements SynonymFile {
     public Reader getReader() {
         Reader reader;
         RequestConfig rc = RequestConfig.custom()
-                .setConnectionRequestTimeout(10 * 1000)
-                .setConnectTimeout(10 * 1000).setSocketTimeout(60 * 1000)
+                .setConnectionRequestTimeout(10 * 1000, TimeUnit.MILLISECONDS)
+                .setResponseTimeout(60 * 1000, TimeUnit.MILLISECONDS)
                 .build();
         CloseableHttpResponse response = null;
         BufferedReader br = null;
@@ -138,12 +136,12 @@ public class RemoteSynonymFile implements SynonymFile {
         get.setConfig(rc);
         try {
             response = executeHttpRequest(get);
-            if (response.getStatusLine().getStatusCode() == 200) {
+            assert response != null;
+            StatusLine statusLine = new StatusLine(response);
+            if (statusLine.getStatusCode() == 200) {
                 String charset = "UTF-8"; // 获取编码，默认为utf-8
-                if (response.getEntity().getContentType().getValue()
-                        .contains("charset=")) {
-                    String contentType = response.getEntity().getContentType()
-                            .getValue();
+                if (response.getEntity().getContentType().contains("charset=")) {
+                    String contentType = response.getEntity().getContentType();
                     charset = contentType.substring(contentType
                             .lastIndexOf('=') + 1);
                 }
@@ -188,10 +186,10 @@ public class RemoteSynonymFile implements SynonymFile {
     public boolean isNeedReloadSynonymMap() {
         logger.info("==== isNeedReloadSynonymMap ====");
         RequestConfig rc = RequestConfig.custom()
-                .setConnectionRequestTimeout(10 * 1000)
-                .setConnectTimeout(10 * 1000).setSocketTimeout(15 * 1000)
+                .setConnectionRequestTimeout(10 * 1000, TimeUnit.MILLISECONDS)
+                .setResponseTimeout(15 * 1000, TimeUnit.MILLISECONDS)
                 .build();
-        HttpHead head = AccessController.doPrivileged((PrivilegedAction<HttpHead>) () -> new HttpHead(location));
+        HttpHead head = new HttpHead(location);
         head.setConfig(rc);
 
         // 设置请求头
@@ -205,7 +203,9 @@ public class RemoteSynonymFile implements SynonymFile {
         CloseableHttpResponse response = null;
         try {
             response = executeHttpRequest(head);
-            if (response.getStatusLine().getStatusCode() == 200) { // 返回200 才做操作
+            assert response != null;
+            StatusLine statusLine = new StatusLine(response);
+            if (statusLine.getStatusCode() == 200) { // 返回200 才做操作
                 if (!response.getLastHeader(LAST_MODIFIED_HEADER).getValue()
                         .equalsIgnoreCase(lastModified)
                         || !response.getLastHeader(ETAG_HEADER).getValue()
@@ -218,11 +218,11 @@ public class RemoteSynonymFile implements SynonymFile {
                             : response.getLastHeader(ETAG_HEADER).getValue();
                     return true;
                 }
-            } else if (response.getStatusLine().getStatusCode() == 304) {
+            } else if (statusLine.getStatusCode() == 304) {
                 return false;
             } else {
                 logger.info("remote synonym {} return bad code {}", location,
-                        response.getStatusLine().getStatusCode());
+                        statusLine.getStatusCode());
             }
         } catch (Exception e){
             return false;

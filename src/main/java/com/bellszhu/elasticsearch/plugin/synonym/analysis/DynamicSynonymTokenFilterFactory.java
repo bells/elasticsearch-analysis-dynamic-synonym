@@ -17,10 +17,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.util.fst.FST;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
-import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.analysis.AbstractTokenFilterFactory;
 import org.elasticsearch.index.analysis.AnalysisMode;
 import org.elasticsearch.index.analysis.CharFilterFactory;
@@ -58,12 +56,11 @@ public class DynamicSynonymTokenFilterFactory extends
     protected final AnalysisMode analysisMode;
 
     public DynamicSynonymTokenFilterFactory(
-            IndexSettings indexSettings,
             Environment env,
             String name,
             Settings settings
     ) throws IOException {
-        super(indexSettings, name, settings);
+        super(name, settings);
 
         this.location = settings.get("synonyms_path");
         if (this.location == null) {
@@ -100,7 +97,7 @@ public class DynamicSynonymTokenFilterFactory extends
             List<TokenFilterFactory> previousTokenFilters,
             Function<String, TokenFilterFactory> allFilters
     ) {
-        final Analyzer analyzer = buildSynonymAnalyzer(tokenizer, charFilters, previousTokenFilters, allFilters);
+        final Analyzer analyzer = buildSynonymAnalyzer(tokenizer, charFilters, previousTokenFilters);
         synonymMap = buildSynonyms(analyzer);
         final String name = name();
         return new TokenFilterFactory() {
@@ -139,8 +136,7 @@ public class DynamicSynonymTokenFilterFactory extends
     Analyzer buildSynonymAnalyzer(
             TokenizerFactory tokenizer,
             List<CharFilterFactory> charFilters,
-            List<TokenFilterFactory> tokenFilters,
-            Function<String, TokenFilterFactory> allFilters
+            List<TokenFilterFactory> tokenFilters
     ) {
         return new CustomAnalyzer(
                 tokenizer,
