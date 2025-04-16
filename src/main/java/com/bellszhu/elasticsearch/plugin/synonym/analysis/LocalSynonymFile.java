@@ -12,6 +12,7 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -56,6 +57,7 @@ public class LocalSynonymFile implements SynonymFile {
         this.location = location;
 
         this.synonymFilePath = deepSearch();
+        //this.synonymFilePath = Paths.get("D:\\IdeaProjects\\plugin\\elasticsearch-analysis-dynamic-synonym\\src\\test\\resources\\synonym.txt");
         isNeedReloadSynonymMap();
     }
 

@@ -19,6 +19,7 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
+import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.analysis.AbstractTokenFilterFactory;
 import org.elasticsearch.index.analysis.AnalysisMode;
 import org.elasticsearch.index.analysis.CharFilterFactory;
@@ -91,12 +92,14 @@ public class DynamicSynonymTokenFilterFactory extends
                 "Call getChainAwareTokenFilterFactory to specialize this factory for an analysis chain first");
     }
 
+    @Override
     public TokenFilterFactory getChainAwareTokenFilterFactory(
+            IndexService.IndexCreationContext context,
             TokenizerFactory tokenizer,
             List<CharFilterFactory> charFilters,
             List<TokenFilterFactory> previousTokenFilters,
-            Function<String, TokenFilterFactory> allFilters
-    ) {
+            Function<String, TokenFilterFactory> allFilters) {
+
         final Analyzer analyzer = buildSynonymAnalyzer(tokenizer, charFilters, previousTokenFilters);
         synonymMap = buildSynonyms(analyzer);
         final String name = name();

@@ -8,6 +8,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
+import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.analysis.AnalysisMode;
 import org.elasticsearch.index.analysis.CharFilterFactory;
 import org.elasticsearch.index.analysis.TokenFilterFactory;
@@ -29,11 +30,8 @@ public class DynamicSynonymGraphTokenFilterFactory extends DynamicSynonymTokenFi
     }
 
     @Override
-    public TokenFilterFactory getChainAwareTokenFilterFactory(
-            TokenizerFactory tokenizer, List<CharFilterFactory> charFilters,
-            List<TokenFilterFactory> previousTokenFilters,
-            Function<String, TokenFilterFactory> allFilters
-    ) {
+    public TokenFilterFactory getChainAwareTokenFilterFactory(IndexService.IndexCreationContext context, TokenizerFactory tokenizer, List<CharFilterFactory> charFilters, List<TokenFilterFactory> previousTokenFilters, Function<String, TokenFilterFactory> allFilters) {
+
         final Analyzer analyzer = buildSynonymAnalyzer(tokenizer, charFilters, previousTokenFilters);
         synonymMap = buildSynonyms(analyzer);
         final String name = name();

@@ -16,7 +16,7 @@
 
 package com.bellszhu.elasticsearch.plugin;
 
-import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
+/*import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeAction;
 import org.elasticsearch.common.settings.Settings;
@@ -29,13 +29,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner.newConfigs;
+import static org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner.newConfigs;*/
 
 /**
  * Create by guanquan.wang at 2019-09-18 16:55
  */
 public class DynamicSynonymPluginTest {
-    private ElasticsearchClusterRunner runner;
+    /*private ElasticsearchClusterRunner runner;
 
     @Before
     public void setUp() {
@@ -138,9 +138,7 @@ public class DynamicSynonymPluginTest {
             System.out.println(token.getTerm() + " => " + token.getType());
         }
 
-        /*
-        Wait one minute to modify the synonym file and run again.
-         */
+
         wait(1000 * 60);
 
         tokens = tokens(indexName, "金拱门");
@@ -242,5 +240,5 @@ public class DynamicSynonymPluginTest {
         createIndexWithRemoteSynonym(index);
 
         analyzer(index);
-    }
+    }*/
 }

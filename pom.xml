@@ -4,15 +4,18 @@
 
     <groupId>com.bellszhu.elasticsearch</groupId>
     <artifactId>elasticsearch-analysis-dynamic-synonym</artifactId>
-    <version>8.7.1</version>
+    <version>8.13.4</version>
     <packaging>jar</packaging>
     <name>elasticsearch-dynamic-synonym</name>
     <description>Analysis-plugin for synonym</description>
 
     <properties>
+        <!-- 根据您实际安装的JDK版本设置 -->
+        <java.version>21</java.version> <!-- 或 11, 8 等 -->
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <elasticsearch.version>${project.version}</elasticsearch.version>
-        <maven.compiler.target>17</maven.compiler.target>
         <elasticsearch.plugin.name>analysis-dynamic-synonym</elasticsearch.plugin.name>
         <elasticsearch.assembly.descriptor>${project.basedir}/src/main/assemblies/plugin.xml
         </elasticsearch.assembly.descriptor>
@@ -74,8 +77,14 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.13.2</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>hamcrest-core</artifactId>
+                    <groupId>org.hamcrest</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
@@ -84,21 +93,14 @@
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-            <version>2.17.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
             <version>2.20.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.codelibs</groupId>
-            <artifactId>elasticsearch-cluster-runner</artifactId>
-            <version>${project.version}.0</version>
-            <scope>test</scope>
+            <groupId>org.elasticsearch.test</groupId>
+            <artifactId>framework</artifactId>
+            <version>${elasticsearch.version}</version>
         </dependency>
     </dependencies>
 
