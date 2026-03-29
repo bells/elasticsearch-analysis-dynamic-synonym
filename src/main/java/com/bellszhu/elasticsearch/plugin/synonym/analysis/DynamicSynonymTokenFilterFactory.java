@@ -2,6 +2,7 @@ package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -51,7 +52,7 @@ public class DynamicSynonymTokenFilterFactory extends
     private final String format;
     private final int interval;
     protected SynonymMap synonymMap;
-    protected Map<AbsSynonymFilter, Integer> dynamicSynonymFilters = new WeakHashMap<>();
+    protected Map<AbsSynonymFilter, Integer> dynamicSynonymFilters = Collections.synchronizedMap(new WeakHashMap<>());
     protected final Environment environment;
     protected final AnalysisMode analysisMode;
 
@@ -189,9 +190,11 @@ public class DynamicSynonymTokenFilterFactory extends
                 logger.info("===== Monitor =======");
                 if (synonymFile.isNeedReloadSynonymMap()) {
                     synonymMap = synonymFile.reloadSynonymMap();
-                    for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
-                        dynamicSynonymFilter.update(synonymMap);
-                        logger.debug("success reload synonym");
+                    synchronized (dynamicSynonymFilters) {
+                        for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
+                            dynamicSynonymFilter.update(synonymMap);
+                            logger.debug("success reload synonym");
+                        }
                     }
                 }
             } catch (Exception e) {
