@@ -148,14 +148,18 @@ public class DynamicSynonymTokenFilterFactory extends
 
 		@Override
 		public void run() {
-			if (synonymFile.isNeedReloadSynonymMap()) {
-				synonymMap = synonymFile.reloadSynonymMap();
-				for (DynamicSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters
-						.keySet()) {
-					dynamicSynonymFilter.update(synonymMap);
-					logger.info("success reload synonym");
-				}
-			}
+            try {
+                if (synonymFile.isNeedReloadSynonymMap()) {
+                    synonymMap = synonymFile.reloadSynonymMap();
+                    for (DynamicSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters
+                            .keySet()) {
+                        dynamicSynonymFilter.update(synonymMap);
+                        logger.info("success reload synonym");
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("failed reload synonym");
+            }
 		}
 	}
 
