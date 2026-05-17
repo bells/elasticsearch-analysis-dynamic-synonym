@@ -23,9 +23,11 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.xcontent.XContentType;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -166,7 +168,7 @@ public class DynamicSynonymPluginTest {
     @Test
     public void testLocalAbsolute() {
         String index = "test_local_absolute";
-        String absolutePath = "target/test-classes/synonym.txt";
+        String absolutePath = Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString();
         // create an index
         createIndexWithLocalSynonym(index, "dynamic_synonym", absolutePath);
 
@@ -190,7 +192,7 @@ public class DynamicSynonymPluginTest {
     @Test
     public void testGraphLocalAbsolute() {
         String index = "test_local_absolute";
-        String absolutePath = "target/test-classes/synonym.txt";
+        String absolutePath = Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString();
         // create an index
         createIndexWithLocalSynonym(index, "dynamic_synonym_graph", absolutePath);
 
@@ -214,7 +216,7 @@ public class DynamicSynonymPluginTest {
     @Test
     public void testLocal() {
         String index = "test_local_relative";
-        String absolutePath = "synonym.txt";
+        String absolutePath = Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString();
         // create an index
         createIndexWithLocalSynonym(index, "dynamic_synonym", absolutePath);
 
@@ -236,6 +238,7 @@ public class DynamicSynonymPluginTest {
     }
 
     @Test
+    @Ignore("requires an external synonym service at http://localhost:8080/api/synonym")
     public void testRemote() throws InterruptedException {
         String index = "test_remote";
         // create an index

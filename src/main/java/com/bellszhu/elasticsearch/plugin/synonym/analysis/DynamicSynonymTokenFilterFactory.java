@@ -39,9 +39,10 @@ public class DynamicSynonymTokenFilterFactory extends
      * Static id generator
      */
     private static final AtomicInteger id = new AtomicInteger(1);
-    private static final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
+    private final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
         Thread thread = new Thread(r);
         thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
+        thread.setDaemon(true);
         return thread;
     });
     private volatile ScheduledFuture<?> scheduledFuture;
@@ -49,12 +50,14 @@ public class DynamicSynonymTokenFilterFactory extends
     private final String location;
     private final boolean expand;
     private final boolean lenient;
+    protected final boolean ignoreCase;
     private final String format;
     private final int interval;
     protected SynonymMap synonymMap;
     protected Map<AbsSynonymFilter, Integer> dynamicSynonymFilters = Collections.synchronizedMap(new WeakHashMap<>());
     protected final Environment environment;
     protected final AnalysisMode analysisMode;
+    private volatile SynonymFile synonymFile;
 
     public DynamicSynonymTokenFilterFactory(
             Environment env,
@@ -68,10 +71,8 @@ public class DynamicSynonymTokenFilterFactory extends
             throw new IllegalArgumentException(
                     "dynamic synonym requires `synonyms_path` to be configured");
         }
-        if (settings.get("ignore_case") != null) {
-        }
-
         this.interval = settings.getAsInt("interval", 60);
+        this.ignoreCase = settings.getAsBoolean("ignore_case", false);
         this.expand = settings.getAsBoolean("expand", true);
         this.lenient = settings.getAsBoolean("lenient", false);
         this.format = settings.get("format", "");
@@ -113,7 +114,7 @@ public class DynamicSynonymTokenFilterFactory extends
                 if (synonymMap.fst == null) {
                     return tokenStream;
                 }
-                DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(tokenStream, synonymMap, false);
+                DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(tokenStream, synonymMap, ignoreCase);
                 dynamicSynonymFilters.put(dynamicSynonymFilter, 1);
 
                 return dynamicSynonymFilter;
@@ -157,13 +158,14 @@ public class DynamicSynonymTokenFilterFactory extends
 
     SynonymFile getSynonymFile(Analyzer analyzer) {
         try {
-            SynonymFile synonymFile;
-            if (location.startsWith("http://") || location.startsWith("https://")) {
-                synonymFile = new RemoteSynonymFile(
+            if (synonymFile == null) {
+                if (location.startsWith("http://") || location.startsWith("https://")) {
+                    synonymFile = new RemoteSynonymFile(
                         environment, analyzer, expand, lenient,  format, location);
-            } else {
-                synonymFile = new LocalSynonymFile(
+                } else {
+                    synonymFile = new LocalSynonymFile(
                         environment, analyzer, expand, lenient, format, location);
+                }
             }
             if (scheduledFuture == null) {
                 scheduledFuture = pool.scheduleAtFixedRate(new Monitor(synonymFile),
@@ -174,6 +176,25 @@ public class DynamicSynonymTokenFilterFactory extends
             logger.error("failed to get synonyms: " + location, e);
             throw new IllegalArgumentException("failed to get synonyms : " + location, e);
         }
+    }
+
+    public void close() {
+        ScheduledFuture<?> future = scheduledFuture;
+        if (future != null) {
+            future.cancel(false);
+            scheduledFuture = null;
+        }
+        SynonymFile file = synonymFile;
+        if (file != null) {
+            try {
+                file.close();
+            } catch (Exception e) {
+                logger.error("failed to close synonym file: " + location, e);
+            }
+            synonymFile = null;
+        }
+        dynamicSynonymFilters.clear();
+        pool.shutdownNow();
     }
 
     public class Monitor implements Runnable {

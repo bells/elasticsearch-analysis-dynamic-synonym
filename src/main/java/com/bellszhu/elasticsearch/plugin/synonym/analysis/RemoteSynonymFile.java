@@ -9,8 +9,10 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
 import java.text.ParseException;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.hc.core5.http.Header;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpHead;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
@@ -37,7 +39,7 @@ public class RemoteSynonymFile implements SynonymFile {
 
     private static final Logger logger = LogManager.getLogger("dynamic-synonym");
 
-    private CloseableHttpClient httpclient;
+    private final CloseableHttpClient httpclient;
 
     private String format;
 
@@ -46,8 +48,6 @@ public class RemoteSynonymFile implements SynonymFile {
     private boolean lenient;
 
     private Analyzer analyzer;
-
-    private Environment env;
 
     /**
      * Remote URL address
@@ -64,7 +64,6 @@ public class RemoteSynonymFile implements SynonymFile {
         this.expand = expand;
         this.lenient = lenient;
         this.format = format;
-        this.env = env;
         this.location = location;
 
         this.httpclient = HttpClients.createDefault();
@@ -121,6 +120,11 @@ public class RemoteSynonymFile implements SynonymFile {
         return null;
     }
 
+    private String headerValue(CloseableHttpResponse response, String headerName) {
+        Header header = response.getLastHeader(headerName);
+        return header == null ? null : header.getValue();
+    }
+
     /**
      * Download custom terms from a remote server
      */
@@ -136,16 +140,23 @@ public class RemoteSynonymFile implements SynonymFile {
         get.setConfig(rc);
         try {
             response = executeHttpRequest(get);
-            assert response != null;
+            if (response == null) {
+                return new StringReader("1=>1");
+            }
             StatusLine statusLine = new StatusLine(response);
             if (statusLine.getStatusCode() == 200) {
                 String charset = "UTF-8"; // 获取编码，默认为utf-8
-                if (response.getEntity().getContentType().contains("charset=")) {
+                if (response.getEntity() != null
+                        && response.getEntity().getContentType() != null
+                        && response.getEntity().getContentType().contains("charset=")) {
                     String contentType = response.getEntity().getContentType();
                     charset = contentType.substring(contentType
                             .lastIndexOf('=') + 1);
                 }
 
+                if (response.getEntity() == null) {
+                    return new StringReader("");
+                }
                 br = new BufferedReader(new InputStreamReader(response
                         .getEntity().getContent(), charset));
                 StringBuilder sb = new StringBuilder();
@@ -203,19 +214,21 @@ public class RemoteSynonymFile implements SynonymFile {
         CloseableHttpResponse response = null;
         try {
             response = executeHttpRequest(head);
-            assert response != null;
+            if (response == null) {
+                return false;
+            }
             StatusLine statusLine = new StatusLine(response);
             if (statusLine.getStatusCode() == 200) { // 返回200 才做操作
-                if (!response.getLastHeader(LAST_MODIFIED_HEADER).getValue()
-                        .equalsIgnoreCase(lastModified)
-                        || !response.getLastHeader(ETAG_HEADER).getValue()
-                        .equalsIgnoreCase(eTags)) {
-
-                    lastModified = response.getLastHeader(LAST_MODIFIED_HEADER) == null ? null
-                            : response.getLastHeader(LAST_MODIFIED_HEADER)
-                            .getValue();
-                    eTags = response.getLastHeader(ETAG_HEADER) == null ? null
-                            : response.getLastHeader(ETAG_HEADER).getValue();
+                String currentLastModified = headerValue(response, LAST_MODIFIED_HEADER);
+                String currentETags = headerValue(response, ETAG_HEADER);
+                if (currentLastModified == null && currentETags == null) {
+                    logger.info("remote synonym {} returned no cache validators, reload every interval", location);
+                    return true;
+                }
+                if (!Objects.equals(currentLastModified, lastModified)
+                        || !Objects.equals(currentETags, eTags)) {
+                    lastModified = currentLastModified;
+                    eTags = currentETags;
                     return true;
                 }
             } else if (statusLine.getStatusCode() == 304) {
@@ -236,5 +249,14 @@ public class RemoteSynonymFile implements SynonymFile {
             }
         }
         return false;
+    }
+
+    @Override
+    public void close() {
+        try {
+            httpclient.close();
+        } catch (IOException e) {
+            logger.error("failed to close http client", e);
+        }
     }
 }
