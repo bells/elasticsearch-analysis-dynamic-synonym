@@ -1,25 +1,14 @@
-/**
- *
- */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import java.io.Reader;
-
+import java.io.IOException;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 
-/**
- * @author bellszhu
- */
 public interface SynonymFile extends AutoCloseable {
+    SynonymMap reloadSynonymMap() throws IOException;
 
-    SynonymMap reloadSynonymMap();
-
-    boolean isNeedReloadSynonymMap();
-
-    Reader getReader();
+    boolean isNeedReloadSynonymMap() throws IOException;
 
     @Override
-    default void close() {
+    default void close() throws IOException {
     }
-
 }

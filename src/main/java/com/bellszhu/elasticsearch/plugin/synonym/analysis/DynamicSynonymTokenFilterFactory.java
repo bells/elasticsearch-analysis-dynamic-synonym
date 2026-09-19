@@ -1,17 +1,13 @@
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,203 +23,207 @@ import org.elasticsearch.index.analysis.CustomAnalyzer;
 import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.index.analysis.TokenizerFactory;
 
-/**
- * @author bellszhu
- */
-public class DynamicSynonymTokenFilterFactory extends
-        AbstractTokenFilterFactory {
-
+/** @author bellszhu */
+public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory implements AutoCloseable {
     private static final Logger logger = LogManager.getLogger("dynamic-synonym");
-
-    /**
-     * Static id generator
-     */
-    private static final AtomicInteger id = new AtomicInteger(1);
-    private final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1, r -> {
-        Thread thread = new Thread(r);
-        thread.setName("monitor-synonym-Thread-" + id.getAndAdd(1));
-        thread.setDaemon(true);
-        return thread;
-    });
-    private volatile ScheduledFuture<?> scheduledFuture;
-
+    private static final AtomicInteger IDS = new AtomicInteger();
+    private final ScheduledThreadPoolExecutor pool;
+    private final List<ChainState> chains = new ArrayList<>();
+    private final Environment environment;
     private final String location;
+    private final String format;
     private final boolean expand;
     private final boolean lenient;
-    protected final boolean ignoreCase;
-    private final String format;
+    private final boolean ignoreCase;
     private final int interval;
-    protected SynonymMap synonymMap;
-    protected Map<AbsSynonymFilter, Integer> dynamicSynonymFilters = Collections.synchronizedMap(new WeakHashMap<>());
-    protected final Environment environment;
-    protected final AnalysisMode analysisMode;
-    private volatile SynonymFile synonymFile;
+    private final AnalysisMode analysisMode;
+    private boolean monitoring;
+    private boolean closed;
+    private Runnable closeListener = () -> { };
 
-    public DynamicSynonymTokenFilterFactory(
-            Environment env,
-            String name,
-            Settings settings
-    ) throws IOException {
+    public DynamicSynonymTokenFilterFactory(Environment env, String name, Settings settings) throws IOException {
         super(name, settings);
-
-        this.location = settings.get("synonyms_path");
-        if (this.location == null) {
-            throw new IllegalArgumentException(
-                    "dynamic synonym requires `synonyms_path` to be configured");
+        location = settings.get("synonyms_path");
+        if (location == null || location.isBlank()) {
+            throw new IllegalArgumentException("dynamic synonym requires a non-empty `synonyms_path`");
         }
-        this.interval = settings.getAsInt("interval", 60);
-        this.ignoreCase = settings.getAsBoolean("ignore_case", false);
-        this.expand = settings.getAsBoolean("expand", true);
-        this.lenient = settings.getAsBoolean("lenient", false);
-        this.format = settings.get("format", "");
-        boolean updateable = settings.getAsBoolean("updateable", false);
-        this.analysisMode = updateable ? AnalysisMode.SEARCH_TIME : AnalysisMode.ALL;
-        this.environment = env;
+        interval = settings.getAsInt("interval", 60);
+        if (interval <= 0) {
+            throw new IllegalArgumentException("dynamic synonym `interval` must be greater than zero");
+        }
+        ignoreCase = settings.getAsBoolean("ignore_case", false);
+        expand = settings.getAsBoolean("expand", true);
+        lenient = settings.getAsBoolean("lenient", false);
+        format = settings.get("format", "");
+        analysisMode = settings.getAsBoolean("updateable", false) ? AnalysisMode.SEARCH_TIME : AnalysisMode.ALL;
+        environment = env;
+        pool = new ScheduledThreadPoolExecutor(1, task -> {
+            Thread thread = new Thread(task, "monitor-synonym-Thread-" + IDS.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
+        pool.setRemoveOnCancelPolicy(true);
     }
 
     @Override
     public AnalysisMode getAnalysisMode() {
-        return this.analysisMode;
+        return analysisMode;
     }
-
 
     @Override
-    public TokenStream create(TokenStream tokenStream) {
-        throw new IllegalStateException(
-                "Call getChainAwareTokenFilterFactory to specialize this factory for an analysis chain first");
+    public TokenStream create(TokenStream input) {
+        throw new IllegalStateException("Specialize this factory for an analysis chain first");
     }
 
-    public TokenFilterFactory getChainAwareTokenFilterFactory(
-            TokenizerFactory tokenizer,
-            List<CharFilterFactory> charFilters,
-            List<TokenFilterFactory> previousTokenFilters,
-            Function<String, TokenFilterFactory> allFilters
-    ) {
-        final Analyzer analyzer = buildSynonymAnalyzer(tokenizer, charFilters, previousTokenFilters);
-        synonymMap = buildSynonyms(analyzer);
-        final String name = name();
-        return new TokenFilterFactory() {
-            @Override
-            public String name() {
-                return name;
-            }
-
-            @Override
-            public TokenStream create(TokenStream tokenStream) {
-                // fst is null means no synonyms
-                if (synonymMap.fst == null) {
-                    return tokenStream;
-                }
-                DynamicSynonymFilter dynamicSynonymFilter = new DynamicSynonymFilter(tokenStream, synonymMap, ignoreCase);
-                dynamicSynonymFilters.put(dynamicSynonymFilter, 1);
-
-                return dynamicSynonymFilter;
-            }
-
-            @Override
-            public TokenFilterFactory getSynonymFilter() {
-                // In order to allow chained synonym filters, we return IDENTITY here to
-                // ensure that synonyms don't get applied to the synonym map itself,
-                // which doesn't support stacked input tokens
-                return IDENTITY_FILTER;
-            }
-
-            @Override
-            public AnalysisMode getAnalysisMode() {
-                return analysisMode;
-            }
-        };
-    }
-
-    Analyzer buildSynonymAnalyzer(
-            TokenizerFactory tokenizer,
-            List<CharFilterFactory> charFilters,
-            List<TokenFilterFactory> tokenFilters
-    ) {
-        return new CustomAnalyzer(
-                tokenizer,
-                charFilters.toArray(new CharFilterFactory[0]),
-                tokenFilters.stream().map(TokenFilterFactory::getSynonymFilter).toArray(TokenFilterFactory[]::new)
-        );
-    }
-
-    SynonymMap buildSynonyms(Analyzer analyzer) {
+    @Override
+    public synchronized TokenFilterFactory getChainAwareTokenFilterFactory(
+            TokenizerFactory tokenizer, List<CharFilterFactory> charFilters,
+            List<TokenFilterFactory> previousTokenFilters, Function<String, TokenFilterFactory> allFilters) {
+        if (closed) {
+            throw new IllegalStateException("Dynamic synonym factory is closed");
+        }
+        Analyzer analyzer = new CustomAnalyzer(tokenizer, charFilters.toArray(new CharFilterFactory[0]),
+            previousTokenFilters.stream().map(TokenFilterFactory::getSynonymFilter).toArray(TokenFilterFactory[]::new));
+        SynonymFile source = null;
         try {
-            return getSynonymFile(analyzer).reloadSynonymMap();
+            source = location.startsWith("http://") || location.startsWith("https://")
+                ? new RemoteSynonymFile(environment, analyzer, expand, lenient, format, location)
+                : new LocalSynonymFile(environment, analyzer, expand, lenient, format, location);
+            ChainState state = new ChainState(analyzer, source, source.reloadSynonymMap());
+            chains.add(state);
+            if (!monitoring) {
+                pool.scheduleWithFixedDelay(this::reloadSynonyms, interval, interval, TimeUnit.SECONDS);
+                monitoring = true;
+            }
+            return new TokenFilterFactory() {
+                @Override
+                public String name() {
+                    return DynamicSynonymTokenFilterFactory.this.name();
+                }
+
+                @Override
+                public TokenStream create(TokenStream input) {
+                    return newFilter(input, state::snapshot, ignoreCase);
+                }
+
+                @Override
+                public TokenFilterFactory getSynonymFilter() {
+                    return IDENTITY_FILTER;
+                }
+
+                @Override
+                public AnalysisMode getAnalysisMode() {
+                    return analysisMode;
+                }
+            };
         } catch (Exception e) {
-            logger.error("failed to build synonyms", e);
-            throw new IllegalArgumentException("failed to build synonyms", e);
+            if (source != null) {
+                try {
+                    source.close();
+                } catch (IOException closeError) {
+                    e.addSuppressed(closeError);
+                }
+            }
+            analyzer.close();
+            if (chains.isEmpty()) {
+                close();
+            }
+            throw new IllegalArgumentException("Failed to load initial synonym rules for filter " + name(), e);
         }
     }
 
-    SynonymFile getSynonymFile(Analyzer analyzer) {
-        try {
-            if (synonymFile == null) {
-                if (location.startsWith("http://") || location.startsWith("https://")) {
-                    synonymFile = new RemoteSynonymFile(
-                        environment, analyzer, expand, lenient,  format, location);
-                } else {
-                    synonymFile = new LocalSynonymFile(
-                        environment, analyzer, expand, lenient, format, location);
-                }
+    protected TokenStream newFilter(TokenStream input, Supplier<SynonymMap> snapshots, boolean ignoreCase) {
+        return new DynamicSynonymFilter(input, snapshots, ignoreCase);
+    }
+
+    public synchronized void setCloseListener(Runnable listener) {
+        if (closed) {
+            throw new IllegalStateException("Dynamic synonym factory is closed");
+        }
+        closeListener = listener;
+    }
+
+    void reloadSynonyms() {
+        List<ChainState> current;
+        synchronized (this) {
+            if (closed) {
+                return;
             }
-            if (scheduledFuture == null) {
-                scheduledFuture = pool.scheduleAtFixedRate(new Monitor(synonymFile),
-                                interval, interval, TimeUnit.SECONDS);
-            }
-            return synonymFile;
-        } catch (Exception e) {
-            logger.error("failed to get synonyms: " + location, e);
-            throw new IllegalArgumentException("failed to get synonyms : " + location, e);
+            current = new ArrayList<>(chains);
+        }
+        for (ChainState state : current) {
+            state.reload();
         }
     }
 
+    @Override
     public void close() {
-        ScheduledFuture<?> future = scheduledFuture;
-        if (future != null) {
-            future.cancel(false);
-            scheduledFuture = null;
-        }
-        SynonymFile file = synonymFile;
-        if (file != null) {
-            try {
-                file.close();
-            } catch (Exception e) {
-                logger.error("failed to close synonym file: " + location, e);
+        List<ChainState> current;
+        synchronized (this) {
+            if (closed) {
+                return;
             }
-            synonymFile = null;
+            closed = true;
+            pool.shutdownNow();
+            current = new ArrayList<>(chains);
+            chains.clear();
         }
-        dynamicSynonymFilters.clear();
-        pool.shutdownNow();
+        try {
+            for (ChainState state : current) {
+                state.close();
+            }
+        } finally {
+            closeListener.run();
+        }
     }
 
-    public class Monitor implements Runnable {
+    private final class ChainState implements AutoCloseable {
+        private final Analyzer analyzer;
+        private final SynonymFile source;
+        private volatile SynonymMap map;
+        private volatile boolean stopped;
 
-        private SynonymFile synonymFile;
-
-        Monitor(SynonymFile synonymFile) {
-            this.synonymFile = synonymFile;
+        private ChainState(Analyzer analyzer, SynonymFile source, SynonymMap map) {
+            this.analyzer = analyzer;
+            this.source = source;
+            this.map = map;
         }
 
-        @Override
-        public void run() {
+        private SynonymMap snapshot() {
+            return map;
+        }
+
+        private synchronized void reload() {
+            if (stopped) {
+                return;
+            }
             try {
-                logger.info("===== Monitor =======");
-                if (synonymFile.isNeedReloadSynonymMap()) {
-                    synonymMap = synonymFile.reloadSynonymMap();
-                    synchronized (dynamicSynonymFilters) {
-                        for (AbsSynonymFilter dynamicSynonymFilter : dynamicSynonymFilters.keySet()) {
-                            dynamicSynonymFilter.update(synonymMap);
-                            logger.debug("success reload synonym");
-                        }
+                if (source.isNeedReloadSynonymMap()) {
+                    SynonymMap next = source.reloadSynonymMap();
+                    if (!stopped) {
+                        map = next;
+                        logger.debug("Reloaded synonym filter {}", name());
                     }
                 }
             } catch (Exception e) {
-                logger.info("Monitor error", e);
-//                e.printStackTrace();
-                logger.error(e);
+                if (!stopped) {
+                    // Parser errors and HTTP exceptions can include rule contents or credential-bearing URLs.
+                    logger.warn("Keeping previous rules for synonym filter {} after {}", name(), e.getClass().getSimpleName());
+                }
+            }
+        }
+
+        @Override
+        public void close() {
+            stopped = true;
+            try {
+                source.close();
+            } catch (IOException e) {
+                logger.warn("Failed to close synonym source for filter {}", name());
+            }
+            synchronized (this) {
+                analyzer.close();
             }
         }
     }
-
 }

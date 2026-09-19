@@ -16,234 +16,154 @@
 
 package com.bellszhu.elasticsearch.plugin;
 
-import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
-import org.elasticsearch.action.ActionFuture;
-import org.elasticsearch.action.admin.indices.analyze.AnalyzeAction;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.xcontent.XContentType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import static org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner.newConfigs;
+import static org.junit.Assert.*;
 
-import java.io.IOException;
-import java.nio.file.Paths;
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeAction;
+import org.elasticsearch.common.settings.Settings;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
-import static org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner.newConfigs;
-
-/**
- * Create by guanquan.wang at 2019-09-18 16:55
- */
 public class DynamicSynonymPluginTest {
-    private ElasticsearchClusterRunner runner;
+    private static ElasticsearchClusterRunner runner;
+    private static final AtomicInteger IDS = new AtomicInteger();
 
-    @Before
-    public void setUp() {
-        // create runner instance
+    @BeforeClass
+    public static void setUp() {
         runner = new ElasticsearchClusterRunner();
-        // create ES nodes
-        runner.build(newConfigs()
-                .numOfNode(1) // Create a test node, default number of node is 3.
-                .pluginTypes("com.bellszhu.elasticsearch.plugin.DynamicSynonymPlugin")
-        );
+        runner.build(newConfigs().numOfNode(1).pluginTypes(DynamicSynonymPlugin.class.getName()));
     }
 
-    @After
-    public void tearDown() throws IOException {
-        // close runner
-        runner.close();
-        // delete all files
-        runner.clean();
+    @AfterClass
+    public static void tearDown() throws Exception {
+        if (runner != null) {
+            runner.close();
+            runner.clean();
+        }
     }
 
-    private void createIndexWithLocalSynonym(String indexName, String synonymType, String localPath) {
-        final String indexSettings = "{\n" +
-            "  \"index\":{\n" +
-            "    \"analysis\":{\n" +
-            "      \"filter\":{\n" +
-            "        \"local_synonym\": {\n" +
-            "            \"type\": \"" + synonymType + "\",\n" +
-            "            \"synonyms_path\": \"" + localPath + "\",\n" +
-            "            \"interval\": \"10\"\n" +
-            "        }"+
-            "      },\n" +
-            "      \"char_filter\":{\n" +
-            "        \"my_char_filter\":{\n" +
-            "          \"pattern\":\"[- /]\",\n" +
-            "          \"type\":\"pattern_replace\",\n" +
-            "          \"replacement\":\"\"\n" +
-            "        }\n" +
-            "      },\n" +
-            "      \"analyzer\":{\n" +
-            "        \"synonym_analyzer\":{\n" +
-            "          \"filter\":[\n" +
-            "            \"lowercase\",\n" +
-            "            \"asciifolding\",\n" +
-            "            \"local_synonym\"\n" +
-            "          ],\n" +
-            "          \"type\":\"custom\",\n" +
-            "          \"tokenizer\":\"keyword\"\n" +
-            "        }\n" +
-            "      }\n" +
-            "    }\n" +
-            "  }\n" +
-            "}";
-
-        runner.createIndex(indexName, Settings.builder().loadFromSource(indexSettings, XContentType.JSON).build());
-        // wait for yellow status
+    private String create(String type, String location) {
+        String index = "synonym_test_" + IDS.incrementAndGet();
+        Settings settings = Settings.builder()
+            .put("index.number_of_shards", 1).put("index.number_of_replicas", 0)
+            .put("index.analysis.filter.rules.type", type)
+            .put("index.analysis.filter.rules.synonyms_path", location)
+            .put("index.analysis.filter.rules.interval", 1)
+            .put("index.analysis.analyzer.synonym_analyzer.tokenizer", "whitespace")
+            .putList("index.analysis.analyzer.synonym_analyzer.filter", "lowercase", "rules").build();
+        runner.createIndex(index, settings);
         runner.ensureYellow();
+        return index;
     }
 
-    private void createIndexWithRemoteSynonym(String indexName) {
-        final String indexSettings = "{\n" +
-            "  \"index\":{\n" +
-            "    \"analysis\":{\n" +
-            "      \"filter\":{\n" +
-            "        \"remote_synonym\": {\n" +
-            "            \"type\": \"dynamic_synonym\",\n" +
-            "            \"synonyms_path\": \"http://localhost:8080/api/synonym\",\n" +
-            "            \"interval\": \"10\"\n" +
-            "        }"+
-            "      },\n" +
-            "      \"char_filter\":{\n" +
-            "        \"my_char_filter\":{\n" +
-            "          \"pattern\":\"[- /]\",\n" +
-            "          \"type\":\"pattern_replace\",\n" +
-            "          \"replacement\":\"\"\n" +
-            "        }\n" +
-            "      },\n" +
-            "      \"analyzer\":{\n" +
-            "        \"synonym_analyzer\":{\n" +
-            "          \"filter\":[\n" +
-            "            \"lowercase\",\n" +
-            "            \"asciifolding\",\n" +
-            "            \"remote_synonym\"\n" +
-            "          ],\n" +
-            "          \"type\":\"custom\",\n" +
-            "          \"tokenizer\":\"keyword\"\n" +
-            "        }\n" +
-            "      }\n" +
-            "    }\n" +
-            "  }\n" +
-            "}";
-
-        runner.createIndex(indexName, Settings.builder().loadFromSource(indexSettings, XContentType.JSON).build());
-        // wait for yellow status
-        runner.ensureYellow();
+    private List<String> terms(String index, String text) {
+        AnalyzeAction.Request request = new AnalyzeAction.Request(index).text(text).analyzer("synonym_analyzer");
+        return runner.admin().indices().analyze(request).actionGet(10, TimeUnit.SECONDS)
+            .getTokens().stream().map(AnalyzeAction.AnalyzeToken::getTerm).toList();
     }
 
-    private synchronized void analyzer(String indexName) throws InterruptedException {
-        List<AnalyzeAction.AnalyzeToken> tokens = tokens(indexName, "肯德基");
-        for (AnalyzeAction.AnalyzeToken token : tokens) {
-            System.out.println(token.getTerm() + " => " + token.getType());
-        }
-
-        /*
-        Wait one minute to modify the synonym file and run again.
-         */
-        wait(1000 * 60);
-
-        tokens = tokens(indexName, "金拱门");
-        for (AnalyzeAction.AnalyzeToken token : tokens) {
-            System.out.println(token.getTerm() + " => " + token.getType());
-        }
-
-        tokens = tokens(indexName, "america");
-        for (AnalyzeAction.AnalyzeToken token : tokens) {
-            System.out.println(token.getTerm() + " => " + token.getType());
-        }
+    private static void await(BooleanSupplier condition) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(25);
+        assertTrue("Condition did not become true before deadline", condition.getAsBoolean());
     }
 
-    private List<AnalyzeAction.AnalyzeToken> tokens(String indexName, String text) {
-        AnalyzeAction.Request analyzeRequest = new AnalyzeAction.Request(indexName);
-        analyzeRequest.text(text);
-        analyzeRequest.analyzer("synonym_analyzer");
-        ActionFuture<AnalyzeAction.Response> actionFuture = runner.admin().indices().analyze(analyzeRequest);
-        AnalyzeAction.Response response = actionFuture.actionGet(10L, TimeUnit.SECONDS);
-        return response.getTokens();
+    private static long monitors() {
+        return Thread.getAllStackTraces().keySet().stream()
+            .filter(t -> t.isAlive() && t.getName().startsWith("monitor-synonym-Thread-")).count();
     }
 
     @Test
-    public void testLocalAbsolute() {
-        String index = "test_local_absolute";
-        String absolutePath = Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString();
-        // create an index
-        createIndexWithLocalSynonym(index, "dynamic_synonym", absolutePath);
-
-        String text = "肯德基";
-        List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
-        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
-            System.out.println(token.getTerm() + " => " + token.getType());
-        }
-
-        assert analyzeTokens.size() == 3;
-        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
-            String key = token.getTerm();
-            if (text.equalsIgnoreCase(key)) {
-                assert token.getType().equalsIgnoreCase("word");
-            } else {
-                assert token.getType().equalsIgnoreCase("synonym");
+    public void relativeLocalReloadAndIndexDeletionStopMonitors() throws Exception {
+        Path config = runner.node().getEnvironment().configFile();
+        Path rules = Files.createTempFile(config, "synonym-test-", ".txt");
+        try {
+            for (String type : List.of("dynamic_synonym", "dynamic_synonym_graph")) {
+                long before = monitors();
+                Files.writeString(rules, "");
+                String index = create(type, rules.getFileName().toString());
+                try {
+                    assertEquals(List.of("a"), terms(index, "A"));
+                    Files.writeString(rules, "a => first second");
+                    await(() -> terms(index, "A").equals(List.of("first", "second")));
+                    Files.writeString(rules, "");
+                    await(() -> terms(index, "A").equals(List.of("a")));
+                    Files.writeString(rules, "a => restored");
+                    await(() -> terms(index, "A").equals(List.of("restored")));
+                } finally {
+                    runner.deleteIndex(index);
+                }
+                await(() -> monitors() <= before);
             }
+        } finally {
+            Files.deleteIfExists(rules);
         }
     }
 
     @Test
-    public void testGraphLocalAbsolute() {
-        String index = "test_local_absolute";
-        String absolutePath = Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString();
-        // create an index
-        createIndexWithLocalSynonym(index, "dynamic_synonym_graph", absolutePath);
-
-        String text = "肯德基";
-        List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
-        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
-            System.out.println(token.getTerm() + " => " + token.getType());
+    public void absoluteLocalPathExpandsOriginalFixture() throws Exception {
+        String index = create("dynamic_synonym", Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString());
+        try {
+            assertEquals(java.util.Set.of("金拱门", "肯德基", "kfc"), new java.util.HashSet<>(terms(index, "肯德基")));
+        } finally {
+            runner.deleteIndex(index);
         }
+    }
 
-        assert analyzeTokens.size() == 3;
-        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
-            String key = token.getTerm();
-            if (text.equalsIgnoreCase(key)) {
-                assert token.getType().equalsIgnoreCase("word");
-            } else {
-                assert token.getType().equalsIgnoreCase("synonym");
+    @Test
+    public void remoteReloadUsesControlledHttpService() throws Exception {
+        AtomicReference<String> rules = new AtomicReference<>("a => initial");
+        AtomicInteger status = new AtomicInteger(200);
+        AtomicInteger failures = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/rules", exchange -> {
+            try {
+                exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
+                if (exchange.getRequestMethod().equals("HEAD")) {
+                    exchange.sendResponseHeaders(200, -1);
+                } else {
+                    int code = status.get();
+                    if (code != 200) failures.incrementAndGet();
+                    byte[] body = rules.get().getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(code, body.length);
+                    exchange.getResponseBody().write(body);
+                }
+            } finally {
+                exchange.close();
             }
-        }
-    }
-
-    @Test
-    public void testLocal() {
-        String index = "test_local_relative";
-        String absolutePath = Paths.get("target/test-classes/synonym.txt").toAbsolutePath().toString();
-        // create an index
-        createIndexWithLocalSynonym(index, "dynamic_synonym", absolutePath);
-
-        String text = "kfc";
-        List<AnalyzeAction.AnalyzeToken> analyzeTokens = tokens(index, text);
-        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
-            System.out.println(token.getTerm() + " => " + token.getType());
-        }
-
-        assert analyzeTokens.size() == 3;
-        for (AnalyzeAction.AnalyzeToken token : analyzeTokens) {
-            String key = token.getTerm();
-            if (text.equalsIgnoreCase(key)) {
-                assert token.getType().equalsIgnoreCase("word");
-            } else {
-                assert token.getType().equalsIgnoreCase("synonym");
+        });
+        server.start();
+        try {
+            for (String type : List.of("dynamic_synonym", "dynamic_synonym_graph")) {
+                rules.set("a => initial");
+                status.set(200);
+                String index = create(type, "http://127.0.0.1:" + server.getAddress().getPort() + "/rules");
+                try {
+                    assertEquals(List.of("initial"), terms(index, "a"));
+                    int before = failures.get();
+                    status.set(503);
+                    await(() -> failures.get() > before);
+                    assertEquals(List.of("initial"), terms(index, "a"));
+                    rules.set("a => recovered");
+                    status.set(200);
+                    await(() -> terms(index, "a").equals(List.of("recovered")));
+                } finally {
+                    runner.deleteIndex(index);
+                }
             }
+        } finally {
+            server.stop(0);
         }
-    }
-
-    @Test
-    @Ignore("requires an external synonym service at http://localhost:8080/api/synonym")
-    public void testRemote() throws InterruptedException {
-        String index = "test_remote";
-        // create an index
-        createIndexWithRemoteSynonym(index);
-
-        analyzer(index);
     }
 }

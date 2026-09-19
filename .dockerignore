@@ -1,6 +1,6 @@
-# Ignore everything
 *
-
-# Except
 !pom.xml
-!src/main
+!LICENSE
+!NOTICE
+!src/
+!src/**

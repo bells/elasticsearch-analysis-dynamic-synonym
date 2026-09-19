@@ -1,262 +1,180 @@
-/**
- *
- */
 package com.bellszhu.elasticsearch.plugin.synonym.analysis;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
-import java.text.ParseException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.hc.core5.http.Header;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpHead;
-import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.message.StatusLine;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.util.Timeout;
+import org.apache.hc.core5.util.TimeValue;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.elasticsearch.analysis.common.ESSolrSynonymParser;
-import org.elasticsearch.analysis.common.ESWordnetSynonymParser;
 import org.elasticsearch.env.Environment;
 
-/**
- * @author bellszhu
- */
+/** @author bellszhu */
 public class RemoteSynonymFile implements SynonymFile {
-
-    private static final String LAST_MODIFIED_HEADER = "Last-Modified";
-    private static final String ETAG_HEADER = "ETag";
-
-    private static final Logger logger = LogManager.getLogger("dynamic-synonym");
-
-    private final CloseableHttpClient httpclient;
-
-    private String format;
-
-    private boolean expand;
-
-    private boolean lenient;
-
-    private Analyzer analyzer;
-
-    /**
-     * Remote URL address
-     */
-    private String location;
-
+    private final CloseableHttpClient client;
+    private final Analyzer analyzer;
+    private final String location;
+    private final String format;
+    private final boolean expand;
+    private final boolean lenient;
+    private final Timeout responseTimeout;
     private String lastModified;
+    private String etag;
+    private boolean retry = true;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
-    private String eTags;
+    RemoteSynonymFile(Environment env, Analyzer analyzer, boolean expand, boolean lenient,
+                      String format, String location) {
+        this(analyzer, expand, lenient, format, location, Timeout.ofSeconds(60));
+    }
 
-    RemoteSynonymFile(Environment env, Analyzer analyzer,
-                      boolean expand, boolean lenient, String format, String location) {
+    RemoteSynonymFile(Analyzer analyzer, boolean expand, boolean lenient,
+                      String format, String location, Timeout responseTimeout) {
         this.analyzer = analyzer;
         this.expand = expand;
         this.lenient = lenient;
         this.format = format;
         this.location = location;
-
-        this.httpclient = HttpClients.createDefault();
-
-        isNeedReloadSynonymMap();
+        this.responseTimeout = responseTimeout;
+        this.client = HttpClients.custom()
+            .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                .setDefaultConnectionConfig(ConnectionConfig.custom()
+                    .setConnectTimeout(10, TimeUnit.SECONDS)
+                    .setSocketTimeout(responseTimeout).build()).build())
+            .setDefaultRequestConfig(RequestConfig.custom()
+                .setConnectionRequestTimeout(10, TimeUnit.SECONDS)
+                .setResponseTimeout(responseTimeout).build())
+            .setRetryStrategy(new DefaultHttpRequestRetryStrategy(1, TimeValue.ofMilliseconds(0)) {
+                @Override
+                public TimeValue getRetryInterval(HttpResponse response, int execCount, HttpContext context) {
+                    // Do not let an arbitrary Retry-After header stall this factory's other chains.
+                    return TimeValue.ofMilliseconds(0);
+                }
+            })
+            .build();
     }
 
-    static SynonymMap.Builder getSynonymParser(
-            Reader rulesReader, String format, boolean expand, boolean lenient, Analyzer analyzer
-    ) throws IOException, ParseException {
-        SynonymMap.Builder parser;
-        if ("wordnet".equalsIgnoreCase(format)) {
-            parser = new ESWordnetSynonymParser(true, expand, lenient, analyzer);
-            ((ESWordnetSynonymParser) parser).parse(rulesReader);
-        } else {
-            parser = new ESSolrSynonymParser(true, expand, lenient, analyzer);
-            ((ESSolrSynonymParser) parser).parse(rulesReader);
+    private static String header(ClassicHttpResponse response, String name) {
+        Header value = response.getLastHeader(name);
+        return value == null ? null : value.getValue();
+    }
+
+    private void ensureOpen() throws IOException {
+        if (closed.get()) {
+            throw new IOException("Synonym source is closed");
         }
-        return parser;
+    }
+
+    private <T> T execute(ClassicHttpRequest request, HttpClientResponseHandler<T> handler) throws IOException {
+        ensureOpen();
+        try {
+            return client.execute(request, handler);
+        } catch (IllegalStateException e) {
+            if (closed.get()) {
+                throw new IOException("Synonym source closed during HTTP request", e);
+            }
+            throw e;
+        }
     }
 
     @Override
-    public SynonymMap reloadSynonymMap() {
-        Reader rulesReader = null;
-        try {
-            logger.debug("start reload remote synonym from {}.", location);
-            rulesReader = getReader();
-            SynonymMap.Builder parser;
-
-            parser = getSynonymParser(rulesReader, format, expand, lenient, analyzer);
-            return parser.build();
-        } catch (Exception e) {
-            logger.error("reload remote synonym {} error!", location, e);
-            throw new IllegalArgumentException(
-                    "could not reload remote synonyms file to build synonyms",
-                    e);
-        } finally {
-            if (rulesReader != null) {
-                try {
-                    rulesReader.close();
-                } catch (Exception e) {
-                    logger.error("failed to close rulesReader", e);
-                }
-            }
+    public synchronized boolean isNeedReloadSynonymMap() throws IOException {
+        ensureOpen();
+        if (retry) {
+            return true;
         }
-    }
-
-    private CloseableHttpResponse executeHttpRequest(HttpUriRequest httpUriRequest) {
-        try {
-            return httpclient.execute(httpUriRequest);
-        } catch (IOException e) {
-            logger.error("Unable to execute HTTP request.", e);
-        }
-        return null;
-    }
-
-    private String headerValue(CloseableHttpResponse response, String headerName) {
-        Header header = response.getLastHeader(headerName);
-        return header == null ? null : header.getValue();
-    }
-
-    /**
-     * Download custom terms from a remote server
-     */
-    public Reader getReader() {
-        Reader reader;
-        RequestConfig rc = RequestConfig.custom()
-                .setConnectionRequestTimeout(10 * 1000, TimeUnit.MILLISECONDS)
-                .setResponseTimeout(60 * 1000, TimeUnit.MILLISECONDS)
-                .build();
-        CloseableHttpResponse response = null;
-        BufferedReader br = null;
-        HttpGet get = new HttpGet(location);
-        get.setConfig(rc);
-        try {
-            response = executeHttpRequest(get);
-            if (response == null) {
-                return new StringReader("1=>1");
-            }
-            StatusLine statusLine = new StatusLine(response);
-            if (statusLine.getStatusCode() == 200) {
-                String charset = "UTF-8"; // 获取编码，默认为utf-8
-                if (response.getEntity() != null
-                        && response.getEntity().getContentType() != null
-                        && response.getEntity().getContentType().contains("charset=")) {
-                    String contentType = response.getEntity().getContentType();
-                    charset = contentType.substring(contentType
-                            .lastIndexOf('=') + 1);
-                }
-
-                if (response.getEntity() == null) {
-                    return new StringReader("");
-                }
-                br = new BufferedReader(new InputStreamReader(response
-                        .getEntity().getContent(), charset));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) {
-                    logger.debug("reload remote synonym: {}", line);
-                    sb.append(line)
-                            .append(System.getProperty("line.separator"));
-                }
-                reader = new StringReader(sb.toString());
-            } else reader = new StringReader("");
-        } catch (Exception e) {
-            logger.error("get remote synonym reader {} error!", location, e);
-//            throw new IllegalArgumentException(
-//                    "Exception while reading remote synonyms file", e);
-            // Fix #54 Returns blank if synonym file has be deleted.
-            reader = new StringReader("1=>1");
-        } finally {
-            try {
-                if (br != null) {
-                    br.close();
-                }
-            } catch (IOException e) {
-                logger.error("failed to close bufferedReader", e);
-            }
-            try {
-                if (response != null) {
-                    response.close();
-                }
-            } catch (IOException e) {
-                logger.error("failed to close http response", e);
-            }
-        }
-        return reader;
-    }
-
-    @Override
-    public boolean isNeedReloadSynonymMap() {
-        logger.info("==== isNeedReloadSynonymMap ====");
-        RequestConfig rc = RequestConfig.custom()
-                .setConnectionRequestTimeout(10 * 1000, TimeUnit.MILLISECONDS)
-                .setResponseTimeout(15 * 1000, TimeUnit.MILLISECONDS)
-                .build();
-        HttpHead head = new HttpHead(location);
-        head.setConfig(rc);
-
-        // 设置请求头
+        HttpHead request = new HttpHead(location);
+        request.setConfig(RequestConfig.custom()
+            .setConnectionRequestTimeout(10, TimeUnit.SECONDS)
+            .setResponseTimeout(Timeout.ofMilliseconds(Math.min(15000, responseTimeout.toMilliseconds())))
+            .build());
         if (lastModified != null) {
-            head.setHeader("If-Modified-Since", lastModified);
+            request.setHeader("If-Modified-Since", lastModified);
         }
-        if (eTags != null) {
-            head.setHeader("If-None-Match", eTags);
+        if (etag != null) {
+            request.setHeader("If-None-Match", etag);
         }
-
-        CloseableHttpResponse response = null;
-        try {
-            response = executeHttpRequest(head);
-            if (response == null) {
+        return execute(request, response -> {
+            int status = response.getCode();
+            if (status == 304) {
                 return false;
             }
-            StatusLine statusLine = new StatusLine(response);
-            if (statusLine.getStatusCode() == 200) { // 返回200 才做操作
-                String currentLastModified = headerValue(response, LAST_MODIFIED_HEADER);
-                String currentETags = headerValue(response, ETAG_HEADER);
-                if (currentLastModified == null && currentETags == null) {
-                    logger.info("remote synonym {} returned no cache validators, reload every interval", location);
-                    return true;
-                }
-                if (!Objects.equals(currentLastModified, lastModified)
-                        || !Objects.equals(currentETags, eTags)) {
-                    lastModified = currentLastModified;
-                    eTags = currentETags;
-                    return true;
-                }
-            } else if (statusLine.getStatusCode() == 304) {
-                return false;
-            } else {
-                logger.info("remote synonym {} return bad code {}", location,
-                        statusLine.getStatusCode());
+            // Some static endpoints only implement GET.
+            if (status == 405 || status == 501) {
+                return true;
             }
-        } catch (Exception e){
-            return false;
-        } finally {
-            try {
-                if (response != null) {
-                    response.close();
-                }
-            } catch (IOException e) {
-                logger.error("failed to close http response", e);
+            if (status != 200) {
+                throw new IOException("Synonym HEAD returned HTTP " + status);
             }
-        }
-        return false;
+            String modified = header(response, "Last-Modified");
+            String tag = header(response, "ETag");
+            return (modified == null && tag == null)
+                || !Objects.equals(modified, lastModified) || !Objects.equals(tag, etag);
+        });
     }
 
     @Override
-    public void close() {
-        try {
-            httpclient.close();
-        } catch (IOException e) {
-            logger.error("failed to close http client", e);
+    public synchronized SynonymMap reloadSynonymMap() throws IOException {
+        retry = true;
+        Loaded loaded = execute(new HttpGet(location), response -> {
+            if (response.getCode() != 200) {
+                throw new IOException("Synonym GET returned HTTP " + response.getCode());
+            }
+            SynonymMap map;
+            if (response.getEntity() == null) {
+                map = SynonymRuleParser.parse(new StringReader(""), format, expand, lenient, analyzer);
+            } else {
+                Charset charset = StandardCharsets.UTF_8;
+                String contentType = response.getEntity().getContentType();
+                if (contentType != null) {
+                    Charset declared = ContentType.parse(contentType).getCharset();
+                    if (declared != null) {
+                        charset = declared;
+                    }
+                }
+                try (Reader reader = new InputStreamReader(response.getEntity().getContent(), charset)) {
+                    map = SynonymRuleParser.parse(reader, format, expand, lenient, analyzer);
+                }
+            }
+            return new Loaded(map, header(response, "Last-Modified"), header(response, "ETag"));
+        });
+        // Commit validators from the same GET only after the complete response parsed successfully.
+        lastModified = loaded.modified();
+        etag = loaded.etag();
+        retry = false;
+        return loaded.map();
+    }
+
+    @Override
+    public void close() throws IOException {
+        // May be called while a poll is blocked in HTTP; closing the client cancels that I/O.
+        if (closed.compareAndSet(false, true)) {
+            client.close();
         }
+    }
+
+    private record Loaded(SynonymMap map, String modified, String etag) {
     }
 }
