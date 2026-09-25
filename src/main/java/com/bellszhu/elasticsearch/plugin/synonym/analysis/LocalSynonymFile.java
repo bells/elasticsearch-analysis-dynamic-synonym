@@ -24,7 +24,7 @@ public class LocalSynonymFile implements SynonymFile {
 
     LocalSynonymFile(Environment env, Analyzer analyzer, boolean expand, boolean lenient,
                      String format, String location) {
-        this.path = env.configFile().resolve(location);
+        this.path = env.configDir().resolve(location);
         this.analyzer = analyzer;
         this.format = format;
         this.expand = expand;

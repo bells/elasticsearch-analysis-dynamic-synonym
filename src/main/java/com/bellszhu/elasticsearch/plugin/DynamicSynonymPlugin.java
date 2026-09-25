@@ -11,10 +11,10 @@ import java.util.Map;
 import org.elasticsearch.index.Index;
 import org.elasticsearch.index.IndexModule;
 import org.elasticsearch.index.IndexSettings;
-import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.index.shard.IndexEventListener;
+import org.elasticsearch.indices.cluster.IndexRemovalReason;
 import org.elasticsearch.indices.analysis.AnalysisModule.AnalysisProvider;
-import org.elasticsearch.indices.cluster.IndicesClusterStateService.AllocatedIndices.IndexRemovalReason;
+import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.plugins.AnalysisPlugin;
 import org.elasticsearch.plugins.Plugin;
 
@@ -30,10 +30,15 @@ public class DynamicSynonymPlugin extends Plugin implements AnalysisPlugin {
     public Map<String, AnalysisProvider<TokenFilterFactory>> getTokenFilters() {
         return Map.of(
             "dynamic_synonym", requiresAnalysisSettings((indexSettings, env, name, settings) ->
-                register(indexSettings.getIndex(), new DynamicSynonymTokenFilterFactory(env, name, settings))),
+                prepare(indexSettings.getIndex(), new DynamicSynonymTokenFilterFactory(env, name, settings))),
             "dynamic_synonym_graph", requiresAnalysisSettings((indexSettings, env, name, settings) ->
-                register(indexSettings.getIndex(), new DynamicSynonymGraphTokenFilterFactory(env, name, settings)))
+                prepare(indexSettings.getIndex(), new DynamicSynonymGraphTokenFilterFactory(env, name, settings)))
         );
+    }
+
+    private <T extends DynamicSynonymTokenFilterFactory> T prepare(Index index, T factory) {
+        factory.setActivationListener(() -> register(index, factory));
+        return factory;
     }
 
     private synchronized DynamicSynonymTokenFilterFactory register(Index index, DynamicSynonymTokenFilterFactory factory) {

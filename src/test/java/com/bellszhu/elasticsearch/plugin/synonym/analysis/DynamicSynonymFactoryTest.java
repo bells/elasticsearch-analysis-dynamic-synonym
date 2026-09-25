@@ -12,6 +12,7 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.IndexService.IndexCreationContext;
 import org.elasticsearch.index.analysis.AnalysisMode;
 import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.index.analysis.TokenizerFactory;
@@ -30,7 +31,32 @@ public class DynamicSynonymFactoryTest {
     }
 
     private TokenFilterFactory specialize(DynamicSynonymTokenFilterFactory factory, List<TokenFilterFactory> filters) {
-        return factory.getChainAwareTokenFilterFactory(TOKENIZER, List.of(), filters, name -> null);
+        return factory.getChainAwareTokenFilterFactory(null, TOKENIZER, List.of(), filters, name -> null);
+    }
+
+    @Test
+    public void metadataVerificationUsesStaticMapWithoutActivatingPoller() throws Exception {
+        Path rules = temp.getRoot().toPath().resolve("rules.txt");
+        Files.writeString(rules, "a => checked");
+        try (DynamicSynonymTokenFilterFactory factory = factory(false)) {
+            java.util.concurrent.atomic.AtomicInteger activations = new java.util.concurrent.atomic.AtomicInteger();
+            factory.setActivationListener(activations::incrementAndGet);
+            TokenFilterFactory first = factory.getChainAwareTokenFilterFactory(
+                IndexCreationContext.METADATA_VERIFICATION, TOKENIZER, List.of(), List.of(), name -> null);
+            TokenFilterFactory second = factory.getChainAwareTokenFilterFactory(
+                IndexCreationContext.METADATA_VERIFICATION, TOKENIZER, List.of(), List.of(), name -> null);
+            assertEquals(0, activations.get());
+            Files.writeString(rules, "a => active");
+            factory.reloadSynonyms();
+            try (Analyzer a = analyzer(first); Analyzer b = analyzer(second)) {
+                assertEquals(List.of("checked"), terms(a, "a"));
+                assertEquals(List.of("checked"), terms(b, "a"));
+            }
+            try (Analyzer active = analyzer(specialize(factory, List.of()))) {
+                assertEquals(1, activations.get());
+                assertEquals(List.of("active"), terms(active, "a"));
+            }
+        }
     }
 
     @Test

@@ -18,17 +18,21 @@ jobs:
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        es: ['9.3.4', '9.5.4']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: maven
       - name: Build and test
-        run: mvn --batch-mode --no-transfer-progress clean verify
+        run: mvn --batch-mode --no-transfer-progress -Drevision=${{ matrix.es }} clean verify
       - name: Verify installable ZIP
-        run: python3 scripts/verify-package.py
+        run: python3 scripts/verify-package.py --version ${{ matrix.es }}
       - name: Summarize JUnit results
         if: success() || failure()
         run: python3 scripts/ci-test-summary.py
@@ -36,14 +40,14 @@ jobs:
         if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-reports
+          name: junit-reports-${{ matrix.es }}
           path: target/surefire-reports/
           if-no-files-found: warn
           retention-days: 7
       - name: Upload verified plugin ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: dynamic-synonym-plugin
+          name: dynamic-synonym-plugin-${{ matrix.es }}
           path: target/releases/*.zip
           if-no-files-found: error
           retention-days: 14
@@ -52,18 +56,24 @@ jobs:
     needs: package
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        es: ['9.3.4', '9.5.4']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: dynamic-synonym-plugin
+          name: dynamic-synonym-plugin-${{ matrix.es }}
           path: target/releases
       - name: Check and install packaged plugin in image
         run: |
-          python3 scripts/verify-package.py
-          make build_image_from_zip image_tag=ci
+          python3 scripts/verify-package.py --version ${{ matrix.es }}
+          make build_image_from_zip plugin_version=${{ matrix.es }} image_tag=ci-${{ matrix.es }}
       - name: Verify installed plugin in Elasticsearch
         shell: bash
+        env:
+          ES_VERSION: ${{ matrix.es }}
         run: |
           set -euo pipefail
           sudo sysctl -w vm.max_map_count=262144
@@ -72,9 +82,11 @@ jobs:
           chmod 755 "$RUNNER_TEMP/synonym-config"
           chmod 644 "$RUNNER_TEMP/synonym-config/synonym-smoke.txt"
           trap 'docker logs synonym-smoke; docker rm -f synonym-smoke' EXIT
-          docker run -d --name synonym-smoke -p 127.0.0.1:19200:9200 \
+          docker run -d --name synonym-smoke --add-host=host.docker.internal:host-gateway -p 127.0.0.1:19200:9200 \
             -e discovery.type=single-node -e xpack.security.enabled=false \
             -e 'ES_JAVA_OPTS=-Xms512m -Xmx512m' \
             -v "$RUNNER_TEMP/synonym-config/synonym-smoke.txt:/usr/share/elasticsearch/config/synonym-smoke.txt:ro" \
-            dynamic-synonym-elasticsearch:ci
-          SYNONYM_FILE="$RUNNER_TEMP/synonym-config/synonym-smoke.txt" python3 scripts/smoke-test.py
+            dynamic-synonym-elasticsearch:ci-${{ matrix.es }}
+          SYNONYM_FILE="$RUNNER_TEMP/synonym-config/synonym-smoke.txt" \
+            SYNONYM_HTTP_HOST=host.docker.internal SYNONYM_HTTP_BIND=0.0.0.0 \
+            python3 scripts/smoke-test.py

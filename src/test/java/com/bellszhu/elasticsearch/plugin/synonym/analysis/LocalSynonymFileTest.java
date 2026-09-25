@@ -67,7 +67,7 @@ public class LocalSynonymFileTest {
     }
 
     @Test
-    public void wordnetExpandAndLenientUseElasticsearchParsers() throws Exception {
+    public void wordnetExpandAndLenientUseLuceneParsers() throws Exception {
         try (Analyzer parser = new WhitespaceAnalyzer()) {
             SynonymMap wordnet = SynonymRuleParser.parse(new StringReader(
                 "s(100000001,1,'alpha',n,1,0).\ns(100000001,2,'beta',n,1,0).\n"), "wordnet", true, false, parser);
@@ -82,6 +82,26 @@ public class LocalSynonymFileTest {
                 new StringReader("the => b"), "", true, false, stop));
             SynonymMap lenient = SynonymRuleParser.parse(new StringReader("the => b"), "", true, true, stop);
             assertNull(lenient.fst);
+        }
+    }
+
+    @Test
+    public void lenientRulesKeepValidLinesAndWordnetGroups() throws Exception {
+        try (Analyzer parser = new WhitespaceAnalyzer()) {
+            SynonymMap solr = SynonymRuleParser.parse(
+                new StringReader("a => b\na => b => c\nc => d"), "", true, true, parser);
+            try (Analyzer analyzer = analyzer(false, () -> solr)) {
+                assertEquals(List.of("b"), terms(analyzer, "a"));
+                assertEquals(List.of("d"), terms(analyzer, "c"));
+            }
+            SynonymMap wordnet = SynonymRuleParser.parse(new StringReader(
+                "s(100000001,1,'alpha',n,1,0).\ns(100000001,2,'beta',n,1,0).\n"
+                    + "bad rule\ns(100000002,1,'gamma',n,1,0).\ns(100000002,2,'delta',n,1,0).\n"),
+                "wordnet", true, true, parser);
+            try (Analyzer analyzer = analyzer(true, () -> wordnet)) {
+                assertTrue(terms(analyzer, "alpha").contains("beta"));
+                assertTrue(terms(analyzer, "gamma").contains("delta"));
+            }
         }
     }
 }

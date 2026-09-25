@@ -1,5 +1,21 @@
 # 项目审查与修复记录
 
+## ES 9.x 适配（2026-09-25）
+
+当前源码以 ES 9+ 为主，明确构建 **9.3.4** 与 **9.5.4**，默认 9.5.4；旧版继续使用已有 release 包。JDK 21 编译经典插件，POM `revision`、描述符、Docker ARG、ZIP 检查和 Actions 矩阵按精确版本对齐；Docker 插件目录使用与描述符一致的 `analysis-dynamic-synonym`。CodeLibs 没有相应 9.x `analysis-common` / `cluster-runner` 包，规则解析改用 Lucene Solr/WordNet parser，保留 chain-aware 分析、两种 filter、失败保留和宽容解析。`entitlement-policy.yaml` 只声明定时器所需的 `manage_threads` 与远程词库所需的 `outbound_network`，移除了旧 SecurityManager policy。
+
+真实节点检查发现：ES 9 索引创建会为 `METADATA_VERIFICATION` 使用临时 Index UUID；若在工厂构造时登记，临时工厂启动的轮询不会在正式索引删除时收到回调。现仅在正式链特化时登记与轮询，元数据验证只解析一次词库并释放 source/Analyzer。复测删除索引后，两个版本的轮询线程数均为 0；HTTP 服务在删除后也不再收到请求。
+
+| 验证层 | 9.3.4 | 9.5.4 |
+| --- | --- | --- |
+| `mvn -o -Drevision=<版本> clean verify`（Oracle JDK 21.0.12 / Maven 3.9.5） | 27 tests，0 failures，0 errors，0 skipped | 27 tests，0 failures，0 errors，0 skipped |
+| `scripts/verify-package.py --version <版本>` | 9 个根条目，描述符与 Java 21 字节码通过 | 9 个根条目，描述符与 Java 21 字节码通过 |
+| 官方 macOS arm64 发行包 | SHA-512 校验、ZIP 安装成功；本地/HTTP 两种 filter 的更新、失败保留、恢复与删除后清理通过 | SHA-512 校验、ZIP 安装成功；相同 smoke 通过 |
+
+安装器会提示这两项 entitlement，需要运维在安装时了解其用途。本机 Docker daemon 未启动，因此未实跑容器构建；Actions 矩阵和标签发布尚未由远端运行。两份真实节点验收使用官方 tar 发行包及自带 JDK 26，区别于本地 Java 21 编译测试。未验证其他 9.x、Windows/Linux 原生环境或集群级长时间负载。
+
+以下章节记录 8.7.1 阶段的历史审查，不代表当前源码的构建版本。
+
 ## GitHub Actions 流水线补强（2026-09-25）
 
 `verify.yml` 将 Maven/ZIP 验证与隔离容器 smoke 分成两个有依赖关系的 job；支持手动触发、同分支/PR 旧运行取消、JUnit 汇总与报告/ZIP 附件。容器 job 下载 Maven job 验证的 ZIP，使用 `Dockerfile.package` 安装同一份产物。标签发布先检查标签与 POM 版本，再调用完整 verify；通过后用同一 ZIP 构建并推送明确版本镜像，同时创建或更新 GitHub Release 附件。发布 job 才获得 `contents: write`，普通验证只需读权限。

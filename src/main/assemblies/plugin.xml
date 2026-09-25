@@ -11,7 +11,7 @@
             <filtered>true</filtered>
         </file>
         <file>
-            <source>${project.basedir}/src/main/resources/plugin-security.policy</source>
+            <source>${project.basedir}/src/main/resources/entitlement-policy.yaml</source>
             <filtered>true</filtered>
         </file>
         <file>

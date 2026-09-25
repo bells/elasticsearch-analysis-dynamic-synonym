@@ -1,2 +1,3 @@
-FROM docker.elastic.co/elasticsearch/elasticsearch:8.7.1
-COPY --chown=elasticsearch:elasticsearch target/package-image/ /usr/share/elasticsearch/plugins/dynamic-synonym/
+ARG ES_VERSION=9.5.4
+FROM docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+COPY --chown=elasticsearch:elasticsearch target/package-image/ /usr/share/elasticsearch/plugins/analysis-dynamic-synonym/

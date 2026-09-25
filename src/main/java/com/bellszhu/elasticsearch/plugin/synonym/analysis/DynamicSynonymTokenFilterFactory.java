@@ -16,7 +16,7 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
-import org.elasticsearch.index.analysis.AbstractTokenFilterFactory;
+import org.elasticsearch.index.IndexService.IndexCreationContext;
 import org.elasticsearch.index.analysis.AnalysisMode;
 import org.elasticsearch.index.analysis.CharFilterFactory;
 import org.elasticsearch.index.analysis.CustomAnalyzer;
@@ -24,12 +24,13 @@ import org.elasticsearch.index.analysis.TokenFilterFactory;
 import org.elasticsearch.index.analysis.TokenizerFactory;
 
 /** @author bellszhu */
-public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory implements AutoCloseable {
+public class DynamicSynonymTokenFilterFactory implements TokenFilterFactory, AutoCloseable {
     private static final Logger logger = LogManager.getLogger("dynamic-synonym");
     private static final AtomicInteger IDS = new AtomicInteger();
     private final ScheduledThreadPoolExecutor pool;
     private final List<ChainState> chains = new ArrayList<>();
     private final Environment environment;
+    private final String name;
     private final String location;
     private final String format;
     private final boolean expand;
@@ -39,10 +40,12 @@ public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory
     private final AnalysisMode analysisMode;
     private boolean monitoring;
     private boolean closed;
+    private boolean activated;
+    private Runnable activationListener = () -> { };
     private Runnable closeListener = () -> { };
 
     public DynamicSynonymTokenFilterFactory(Environment env, String name, Settings settings) throws IOException {
-        super(name, settings);
+        this.name = name;
         location = settings.get("synonyms_path");
         if (location == null || location.isBlank()) {
             throw new IllegalArgumentException("dynamic synonym requires a non-empty `synonyms_path`");
@@ -66,6 +69,11 @@ public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory
     }
 
     @Override
+    public String name() {
+        return name;
+    }
+
+    @Override
     public AnalysisMode getAnalysisMode() {
         return analysisMode;
     }
@@ -76,9 +84,30 @@ public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory
     }
 
     @Override
-    public synchronized TokenFilterFactory getChainAwareTokenFilterFactory(
+    public TokenFilterFactory getChainAwareTokenFilterFactory(IndexCreationContext context,
             TokenizerFactory tokenizer, List<CharFilterFactory> charFilters,
             List<TokenFilterFactory> previousTokenFilters, Function<String, TokenFilterFactory> allFilters) {
+        boolean validation = context == IndexCreationContext.METADATA_VERIFICATION;
+        if (!validation) {
+            activate();
+        }
+        return specialize(tokenizer, charFilters, previousTokenFilters, allFilters, validation);
+    }
+
+    private synchronized void activate() {
+        if (!activated) {
+            if (closed) {
+                throw new IllegalStateException("Dynamic synonym factory is closed");
+            }
+            activationListener.run();
+            activated = true;
+        }
+    }
+
+    private synchronized TokenFilterFactory specialize(
+            TokenizerFactory tokenizer, List<CharFilterFactory> charFilters,
+            List<TokenFilterFactory> previousTokenFilters, Function<String, TokenFilterFactory> allFilters,
+            boolean validation) {
         if (closed) {
             throw new IllegalStateException("Dynamic synonym factory is closed");
         }
@@ -89,11 +118,20 @@ public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory
             source = location.startsWith("http://") || location.startsWith("https://")
                 ? new RemoteSynonymFile(environment, analyzer, expand, lenient, format, location)
                 : new LocalSynonymFile(environment, analyzer, expand, lenient, format, location);
-            ChainState state = new ChainState(analyzer, source, source.reloadSynonymMap());
-            chains.add(state);
-            if (!monitoring) {
-                pool.scheduleWithFixedDelay(this::reloadSynonyms, interval, interval, TimeUnit.SECONDS);
-                monitoring = true;
+            SynonymMap initial = source.reloadSynonymMap();
+            Supplier<SynonymMap> snapshots;
+            if (validation) {
+                source.close();
+                analyzer.close();
+                snapshots = () -> initial;
+            } else {
+                ChainState state = new ChainState(analyzer, source, initial);
+                chains.add(state);
+                if (!monitoring) {
+                    pool.scheduleWithFixedDelay(this::reloadSynonyms, interval, interval, TimeUnit.SECONDS);
+                    monitoring = true;
+                }
+                snapshots = state::snapshot;
             }
             return new TokenFilterFactory() {
                 @Override
@@ -103,7 +141,7 @@ public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory
 
                 @Override
                 public TokenStream create(TokenStream input) {
-                    return newFilter(input, state::snapshot, ignoreCase);
+                    return newFilter(input, snapshots, ignoreCase);
                 }
 
                 @Override
@@ -141,6 +179,13 @@ public class DynamicSynonymTokenFilterFactory extends AbstractTokenFilterFactory
             throw new IllegalStateException("Dynamic synonym factory is closed");
         }
         closeListener = listener;
+    }
+
+    public synchronized void setActivationListener(Runnable listener) {
+        if (closed || activated) {
+            throw new IllegalStateException("Dynamic synonym factory is already active or closed");
+        }
+        activationListener = listener;
     }
 
     void reloadSynonyms() {

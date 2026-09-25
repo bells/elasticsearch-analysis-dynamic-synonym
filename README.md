@@ -12,18 +12,30 @@ These capabilities continue in 9.x. Prefer the native APIs for new deployments.
 
 This plugin remains useful for **direct HTTP(S) dictionary polling** and **automatic
 local-file polling**, especially for existing external dictionary services. The
-current build targets **8.7.1 only**, not other 8.x versions or 9.x. See the
+current source targets the exact 9.x versions below. Older major versions have
+historical release packages. See the
 [version assessment and migration guide](docs/ELASTICSEARCH_SUPPORT.md) (中文).
 
 ## Version
 
-The current POM targets **Elasticsearch 8.7.1** and **Java 17**. Build and install
-against the exact Elasticsearch version declared by the plugin descriptor;
-the historical branch names below are not a guarantee of compatibility with every 8.x release.
+The default build targets **Elasticsearch 9.5.4** and **Java 21**. This is a
+classic plugin, so each ZIP must match the host Elasticsearch version exactly.
+The supported source builds are:
+
+| Build command | Elasticsearch | Verification |
+| --- | --- | --- |
+| `mvn clean verify` | 9.5.4 | Unit tests and ZIP check; CI installs the ZIP in a 9.5.4 container |
+| `mvn -Drevision=9.3.4 clean verify` | 9.3.4 | Unit tests and ZIP check; CI installs the ZIP in a 9.3.4 container |
+
+Use `python3 scripts/verify-package.py --version 9.3.4` for the alternate ZIP.
+The builds do not claim compatibility with unlisted 9.x releases. The stable
+analysis plugin API is a future direction; the current chain-aware parsing and
+index lifecycle behavior still use internal APIs.
 
 | dynamic synonym version | ES version    |
 |-------------------------|---------------|
-| master                  | 8.7.1         |
+| current source          | 9.3.4, 9.5.4  |
+| historical release      | 8.7.1         |
 | 7.4.2                   | 7.4.2         |
 | 6.1.4                   | 6.1.4         |
 | 5.2.0                   | 5.2.0         |
@@ -36,9 +48,9 @@ the historical branch names below are not a guarantee of compatibility with ever
 
 ## Installation
 
-1. Use JDK 17 and Maven (3.9.x recommended), then run `mvn clean verify`.
+1. Use JDK 21 and Maven (3.9.x recommended), then run one of the build commands above.
 
-2. copy and unzip `target/releases/elasticsearch-analysis-dynamic-synonym-{version}.zip` to `your-es-root/plugins/dynamic-synonym`
+2. Install the matching ZIP with `bin/elasticsearch-plugin install file:///absolute/path/to/elasticsearch-analysis-dynamic-synonym-{version}.zip`, then restart the node. The resulting directory is `plugins/analysis-dynamic-synonym`.
 
 ## Example
 
@@ -75,7 +87,7 @@ the historical branch names below are not a guarantee of compatibility with ever
 
 `type`: `dynamic_synonym` or `dynamic_synonym_graph`, *mandatory*
 
-`synonyms_path`: A file path relative to the Elasticsearch config directory, an absolute path permitted by the host, or an HTTP(S) URL, *mandatory*
+`synonyms_path`: A file path relative to the Elasticsearch config directory or an HTTP(S) URL, *mandatory*. ES 9 automatically permits plugin reads in its config directory; an absolute path outside it requires a separate host permission design and is not supported by the packaged entitlements.
 
 `interval`: Positive delay in seconds between completed polling rounds, default: `60`, *optional*
 
@@ -83,7 +95,7 @@ the historical branch names below are not a guarantee of compatibility with ever
 
 `expand`: Expand, default: `true`, *optional*
 
-`lenient`: Lenient on exception thrown when importing a synonym, default: `false`, *optional*
+`lenient`: Skip invalid Solr lines or WordNet synset groups, default: `false`, *optional*. Source read failures still fail the load.
 
 `format`: Synonym file format, default: `''`, *optional*. For WordNet structure this can be set to `'wordnet'`
 
@@ -118,10 +130,10 @@ catch-up bursts after slow requests.
 
 Run `mvn clean verify` and `python3 scripts/verify-package.py` before delivery.
 GitHub Actions runs these checks on pushes, pull requests and manual dispatch,
-then installs the verified ZIP into an Elasticsearch 8.7.1 image for a container
+then installs each verified ZIP into its matching Elasticsearch 9.x image for a container
 smoke test. Successful package jobs provide the ZIP; JUnit reports and a test
 summary remain available when tests fail. A
-`v8.7.1` tag matching the POM version also publishes the tested ZIP to a GitHub
+`v9.3.4` or `v9.5.4` tags publish the matching tested ZIP to a GitHub
 Release and a versioned Docker image after both checks pass. Docker publishing
 requires the repository's `DOCKER_USERNAME` and `DOCKER_PASSWORD` secrets.
 Local container checks require a running Docker daemon; see the

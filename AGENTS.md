@@ -32,17 +32,16 @@ CodeGraph 用于辅助导航，源码、构建配置和实际测试仍是最终�
 | `src/main/java/com/bellszhu/elasticsearch/plugin/synonym/analysis/` | 分析链工厂、词库读取、轮询和 Lucene token filter |
 | `src/main/resources/` | 插件描述符与安全策略 |
 | `src/main/assemblies/plugin.xml` | 可安装 ZIP 的布局和依赖选择 |
-| `src/test/java/com.bellszhu.elasticsearch.plugin/` | JUnit 4 / ElasticsearchClusterRunner 集成测试；目录名包含点，搜索时注意 |
 | `src/test/java/com/bellszhu/elasticsearch/plugin/synonym/analysis/` | 词库、快照和工厂回归测试 |
-| `scripts/` | ZIP 检查与隔离节点 smoke |
+| `scripts/` | ZIP 检查与官方发行包隔离节点 smoke |
 | `src/test/resources/` | 测试词库与日志配置 |
 | `ti_synonym.txt` | 大型词库文件，未被当前测试或打包显式引用 |
 | `Dockerfile`、`Makefile`、`.github/workflows/` | 容器构建及标签触发发布 |
 
 ## 实现约束
 
-- 当前 POM 版本为 `8.7.1`，Java 编译目标为 `17`。Elasticsearch 插件要求精确匹配宿主版本，不能将“8.x”当成已验证的兼容范围。
-- 版本升级同时检查 POM 中的 Elasticsearch、analysis-common、cluster-runner 依赖、描述符模板、Docker 基础镜像及 README；不要直接编辑 `target/` 生成的描述符。
+- 当前源码的明确目标为 ES `9.3.4`、`9.5.4`，默认 `9.5.4`，Java 编译目标为 `21`。经典插件 ZIP 要求精确匹配宿主版本；旧版使用历史 release 包。
+- 版本升级同时检查 POM 中的 Elasticsearch 依赖、描述符模板、Docker 基础镜像、CI 矩阵及 README；不要直接编辑 `target/` 生成的描述符。
 - 保持插件入口、分析链工厂、词库 I/O 和 token 处理的职责分离。优先复用 Elasticsearch/Lucene parser 与现有 HttpClient 5，不自行重写通用解析器或 HTTP 客户端。
 - 同义词解析必须使用当前分析链的 tokenizer、char filters 和前置 token filters。不能绕过 chain-aware 工厂直接调用外层 `create()`。
 - 两类过滤器的行为不同，普通过滤器修复不能自动代表 graph 过滤器已正确；涉及共享工厂的变化应检查两者。
@@ -51,13 +50,13 @@ CodeGraph 用于辅助导航，源码、构建配置和实际测试仍是最终�
 - 明确 Analyzer、Reader、HTTP response/client、定时任务及 executor 的所有权和释放时机。新增 HTTP 请求需要合理超时、状态码处理和资源释放。
 - `updateable=true` 表示仅允许搜索时使用，不是定时刷新开关。配置键拼写属于外部契约，不随意重命名。
 - 两个 wrapper 委托 Lucene 原生过滤器，保留现有 Apache 授权头与归属。不要复制算法重新维护；修改 token 处理要验证词项、位置增量、位置长度、偏移量及 reset 后复用。
-- 避免输出完整远程词库、带凭据的 URL 或密钥；不要为了让测试通过而扩大 `plugin-security.policy` 权限。
+- 避免输出完整远程词库、带凭据的 URL 或密钥；不要为了让测试通过而扩大 `entitlement-policy.yaml` 权限。
 
 ## 修改和验证
 
-- 首选 JDK 17 和 Maven 3.9.x。无 Maven Wrapper，先执行 `java -version`、`mvn -version` 核实 Maven 实际使用的 JVM。
+- 首选 JDK 21 和 Maven 3.9.x。无 Maven Wrapper，先执行 `java -version`、`mvn -version` 核实 Maven 实际使用的 JVM。
 - Java 或依赖修改通常执行 `mvn test`；打包、版本和交付变更执行 `mvn clean verify` 并检查 ZIP 内容。具体步骤见开发文档。
-- 现有测试会启动临时 Elasticsearch 节点、监听本地端口；远程测试使用自动创建的临时 HTTP 服务，无人工测试跳过项。必须分别报告通过、失败和跳过数量。
+- JUnit 远程测试会监听临时本地 HTTP 端口；官方 ES 节点验证由 `scripts/smoke-test.py` 和 CI 的对应版本容器承担，无人工测试跳过项。必须分别报告通过、失败和跳过数量。
 - `-DskipTests` 只可作为编译/打包排查，不能作为功能验证通过的依据。沙箱端口限制或依赖下载失败应记录为环境阻塞，不要改业务代码掩盖。
 - 新增回归测试应自动准备和清理临时资源；HTTP 测试使用可控的本地服务，避免依赖固定外部地址、人工改文件或固定长时间睡眠。
 - 纯文档变更检查链接、配置默认值、命令和 `git diff --check`。不为文档增加无意义测试。
