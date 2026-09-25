@@ -37,4 +37,7 @@ with ZipFile(archive) as package:
 docker = (root / "Dockerfile").read_text()
 assert f"elasticsearch:{version}" in docker, "Docker/POM Elasticsearch version mismatch"
 assert "eclipse-temurin-17" in docker, "Docker must compile with JDK 17"
+package_docker = (root / "Dockerfile.package").read_text()
+assert f"elasticsearch:{version}" in package_docker, "Package Docker/POM Elasticsearch version mismatch"
 assert "!src/**" in (root / ".dockerignore").read_text(), "Docker build must include tests"
+assert "!target/package-image/**" in (root / ".dockerignore").read_text(), "Docker build must include packaged plugin"

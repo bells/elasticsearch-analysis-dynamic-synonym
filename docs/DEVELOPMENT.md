@@ -61,13 +61,16 @@ ES_URL=http://127.0.0.1:19200 SYNONYM_FILE=/absolute/test-config/synonym-smoke.t
 
 ```sh
 make build_image
+make build_image_from_zip  # 使用已验证的 target/releases/*.zip，需先运行 Maven 构建
 # 仅预览发布命令，不实际发布
 make -n push_image image_host=example/ image_tag=v8.7.1
 ```
 
-Docker builder 使用 JDK 17，包含全部 src 并执行 `mvn clean verify`；运行镜像 ES 8.7.1。`.github/workflows/verify.yml` 覆盖 PR、分支 push 和可复用调用，执行 Maven、ZIP 检查、镜像构建及上述容器 smoke。需要 Docker daemon；CI 容器限制在 loopback 端口且使用临时词库。
+本地 `make build_image` 的 Docker builder 使用 JDK 17，包含全部 src 并执行 `mvn clean verify`。`make build_image_from_zip` 使用 `Dockerfile.package`，直接把 Maven 验证后的 ZIP 装入 ES 8.7.1 镜像，避免再次编译。两种构建都要求 Docker daemon。
 
-发布 workflow 在 `v*.*.*` 标签 push 时触发，先执行 verify，并要求标签等于 `v` 加 POM 版本。镜像命名空间来自 `DOCKER_USERNAME` secret，凭据为 `DOCKER_PASSWORD`，旧的未定义 `IMAGE_HOST_SLASH_APPENDED` 已移除。
+`.github/workflows/verify.yml` 覆盖 PR、分支 push、手动触发及可复用调用。`package` job 用 Temurin 17 执行 Maven 与 ZIP 检查，生成测试总览，并上传 JUnit 报告和 ZIP。`smoke` job 下载同一 ZIP，以隔离 ES 8.7.1 容器执行上述安装验收。两个 job 都有超时；新提交会取消同一 PR/分支尚在运行的旧验证。容器只绑定 loopback 端口并使用临时词库。
+
+发布 workflow 在 `v*.*.*` 标签 push 时触发，先要求标签等于 `v` 加 POM 版本，再调用完整 verify。通过后下载同一 ZIP，构建并推送明确版本的 Docker 镜像，随后创建或更新对应 GitHub Release 的 ZIP 附件。镜像命名空间来自 `DOCKER_USERNAME` secret，凭据为 `DOCKER_PASSWORD`；Release 使用该 job 的 `contents: write` 权限。已有 Release 的重跑会替换同名 ZIP。工作流不会从普通分支或手动验证发布。仓库需要允许 Actions 写入 Release，且 Docker 凭据已配置；不能把工作流文件检查当成远端发布成功。
 
 `make push_image` 需要显式 `image_host`，只推送所选标签；不再使用 `docker push -a` 或自动发布 latest。`image_tag` 默认读取 POM，可通过命令行覆盖。只有用户明确要求才执行发布或推送标签。
 

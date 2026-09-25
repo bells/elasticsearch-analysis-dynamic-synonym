@@ -4,14 +4,20 @@ on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
 
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -19,13 +25,43 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - run: mvn --batch-mode clean verify
-      - run: python3 scripts/verify-package.py
-      - uses: actions/upload-artifact@v4
+      - name: Build and test
+        run: mvn --batch-mode --no-transfer-progress clean verify
+      - name: Verify installable ZIP
+        run: python3 scripts/verify-package.py
+      - name: Summarize JUnit results
+        if: success() || failure()
+        run: python3 scripts/ci-test-summary.py
+      - name: Upload JUnit reports
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports
+          path: target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload verified plugin ZIP
+        uses: actions/upload-artifact@v4
         with:
           name: dynamic-synonym-plugin
           path: target/releases/*.zip
-      - run: make build_image image_tag=ci
+          if-no-files-found: error
+          retention-days: 14
+
+  smoke:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dynamic-synonym-plugin
+          path: target/releases
+      - name: Check and install packaged plugin in image
+        run: |
+          python3 scripts/verify-package.py
+          make build_image_from_zip image_tag=ci
       - name: Verify installed plugin in Elasticsearch
         shell: bash
         run: |

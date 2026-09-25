@@ -73,4 +73,4 @@ HTTP 显式设置 10 秒建连/连接池获取超时、HEAD 最长 15 秒响应�
 
 POM 版本驱动插件、ES、analysis-common、cluster-runner 版本。Java 使用 `--release 17`。assembly 将描述符、策略、LICENSE/NOTICE、项目及必要依赖 JAR 放入 ZIP 根目录，不打包宿主 ES/Lucene/Log4j 或测试 JAR。
 
-Docker 以 JDK 17 执行完整 Maven 测试，运行镜像固定 ES 8.7.1。PR/分支 CI 验证 Maven、ZIP 和容器内安装；标签发布先依赖相同验证，再发布明确的版本标签。
+本地 `Dockerfile` 以 JDK 17 执行完整 Maven 测试，运行镜像固定 ES 8.7.1。Actions 的 Maven job 生成并检查 ZIP；后续容器 smoke 和标签发布均下载同一份 ZIP，再由 `Dockerfile.package` 安装到 ES 8.7.1 镜像。标签版本先与 POM 匹配，并在全部验证通过后推送明确版本的镜像、附加 ZIP 到 GitHub Release。

@@ -117,5 +117,12 @@ catch-up bursts after slow requests.
 * [Project review](docs/PROJECT_REVIEW.md) — dated findings and verification evidence (中文).
 
 Run `mvn clean verify` and `python3 scripts/verify-package.py` before delivery.
-The Docker builder uses JDK 17 and includes all tests. CI also defines an installed
-container smoke test; local execution requires a running Docker daemon.
+GitHub Actions runs these checks on pushes, pull requests and manual dispatch,
+then installs the verified ZIP into an Elasticsearch 8.7.1 image for a container
+smoke test. Successful package jobs provide the ZIP; JUnit reports and a test
+summary remain available when tests fail. A
+`v8.7.1` tag matching the POM version also publishes the tested ZIP to a GitHub
+Release and a versioned Docker image after both checks pass. Docker publishing
+requires the repository's `DOCKER_USERNAME` and `DOCKER_PASSWORD` secrets.
+Local container checks require a running Docker daemon; see the
+[development guide](docs/DEVELOPMENT.md).

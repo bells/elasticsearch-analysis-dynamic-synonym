@@ -4,3 +4,6 @@
 !NOTICE
 !src/
 !src/**
+!target/
+!target/package-image/
+!target/package-image/**

@@ -1,4 +1,4 @@
-name: Build and push docker image
+name: Publish plugin release
 
 on:
   push:
@@ -7,12 +7,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  verify:
-    uses: ./.github/workflows/verify.yml
-  build-and-publish:
-    needs: verify
-    runs-on: ubuntu-latest
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - name: Validate release version
@@ -25,6 +27,25 @@ jobs:
           version = ET.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text
           assert os.environ['RELEASE_TAG'] == 'v' + version, 'Tag and POM versions differ'
           PY
+
+  verify:
+    needs: version
+    uses: ./.github/workflows/verify.yml
+
+  build-and-publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dynamic-synonym-plugin
+          path: target/releases
+      - name: Recheck release ZIP
+        run: python3 scripts/verify-package.py
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -35,4 +56,17 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           test -n "$DOCKER_NAMESPACE"
-          make build_image_and_push image_host="$DOCKER_NAMESPACE/" image_tag="$RELEASE_TAG"
+          make build_image_from_zip image_host="$DOCKER_NAMESPACE/" image_tag="$RELEASE_TAG"
+          make push_image image_host="$DOCKER_NAMESPACE/" image_tag="$RELEASE_TAG"
+      - name: Publish plugin ZIP to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          archive=(target/releases/*.zip)
+          test -f "${archive[0]}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${archive[0]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${archive[0]}" --verify-tag --generate-notes
+          fi

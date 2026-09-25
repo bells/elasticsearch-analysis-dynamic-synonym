@@ -1,5 +1,11 @@
 # 项目审查与修复记录
 
+## GitHub Actions 流水线补强（2026-09-25）
+
+`verify.yml` 将 Maven/ZIP 验证与隔离容器 smoke 分成两个有依赖关系的 job；支持手动触发、同分支/PR 旧运行取消、JUnit 汇总与报告/ZIP 附件。容器 job 下载 Maven job 验证的 ZIP，使用 `Dockerfile.package` 安装同一份产物。标签发布先检查标签与 POM 版本，再调用完整 verify；通过后用同一 ZIP 构建并推送明确版本镜像，同时创建或更新 GitHub Release 附件。发布 job 才获得 `contents: write`，普通验证只需读权限。
+
+本地证据：Oracle JDK 17.0.8 / Maven 3.9.5 下 `mvn -o --batch-mode --no-transfer-progress clean verify` 成功，28 项通过、0 failures、0 errors、0 skipped；`python3 scripts/verify-package.py` 检查 10 个 ZIP 根条目和版本/JDK/依赖；JUnit 汇总脚本输出 28/0/0/0；Ruby YAML 解析、Python 语法检查、Make 发布命令预览及 `git diff --check` 通过。沙箱内首次 Maven 运行因临时端口监听被拒绝而报 6 项环境错误，允许本地监听后按相同命令重跑通过。本机 Docker daemon 未启动，未执行容器 smoke；GitHub Actions 尚未从本次未推送修改触发，不能宣称远端发布或运行成功。
+
 日期：2026-09-19。初次审查基线 `d185d39`。本次按用户要求核实 ES 原生方案后，修复当前 ES 8.7.1 分支；未升级插件版本，也未宣称兼容 ES 9.x。
 
 ## 定位结论
